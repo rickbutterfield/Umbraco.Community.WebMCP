@@ -73,7 +73,7 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 	getTools(): Array<UmbWebMcpTool> {
 		return [
 			{
-				name: 'umbraco_document_get_state',
+				name: 'umbraco_get_document_state',
 				title: 'Get open document state',
 				description:
 					'Returns the document open in the workspace, including unsaved edits: key, variants and names, the document type properties and the current property values.',
@@ -81,7 +81,7 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				execute: () => this.#getState(),
 			},
 			{
-				name: 'umbraco_document_set_name',
+				name: 'umbraco_set_document_name',
 				title: 'Set document name',
 				description: 'Sets the name of the open document for a variant. Does not save.',
 				inputSchema: {
@@ -95,14 +95,14 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				},
 			},
 			{
-				name: 'umbraco_document_set_property_value',
+				name: 'umbraco_set_document_property_value',
 				title: 'Set document property value',
 				description:
 					'Sets a property value on the open document, by property alias. The value must be in the stored format of the property editor. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {
-						alias: { type: 'string', description: 'The property alias, from umbraco_document_get_state.' },
+						alias: { type: 'string', description: 'The property alias, from umbraco_get_document_state.' },
 						value: { description: 'The value, in the property editor stored format.' },
 						...VARIANT_PROPERTIES,
 					},
@@ -114,7 +114,7 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				},
 			},
 			{
-				name: 'umbraco_document_save',
+				name: 'umbraco_save_document',
 				title: 'Save document',
 				description:
 					'Saves the open document, as the Save button does. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
@@ -125,7 +125,7 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				},
 			},
 			{
-				name: 'umbraco_document_save_and_publish',
+				name: 'umbraco_save_and_publish_document',
 				title: 'Save and publish document',
 				description:
 					'Saves and publishes the open document, as the Save and publish button does. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',

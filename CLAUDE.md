@@ -68,8 +68,10 @@ Open https://localhost:44311/umbraco. The backoffice refuses login over HTTP.
   Development. This keeps the tools out of production; don't replace it with a static manifest. The manifest's
   `Version` comes from the assembly's informational version, which the CMS uses for cache busting.
 - **Tools run the backoffice's own code, as the logged-in user.** Prefer clicking a modal's real buttons
-  (`umbraco_modal_click_button`) over submitting through its context: many modals do their work in the button handler.
+  (`umbraco_click_modal_button`) over submitting through its context: many modals do their work in the button handler.
 - **Actions that may open a modal must not block.** Use `runWithoutBlocking` so the agent gets control back.
+- **Tool names are verb-first: `umbraco_<verb>_<thing>`.** `npm run ci:check-tool-names` enforces it. When you add, remove
+  or rename a tool, run `node scripts/check-tool-names.mjs --update` and update `docs/tools.md`.
 - **Read-only tools set `readOnlyHint`; tools that change data set `consequentialHint`.**
 - TypeScript follows the DXP ESLint 9 config (`eslint.config.mjs`); Prettier runs through ESLint with tabs and single
   quotes (`.prettierrc.json`).

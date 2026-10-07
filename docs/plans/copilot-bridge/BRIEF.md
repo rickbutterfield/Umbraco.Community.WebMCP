@@ -73,7 +73,7 @@ explicitly. The bridge has to work on production sites, so:
 3. **How long actions take.** This package's actions return `completed: false` while a modal is open. The model has
    to understand it should then use the modal tools on its next turn. Prompting quality is unknown.
 4. **Overlap with the Copilot's own tools.** The Copilot already edits and saves the selected entity. The model may
-   pick the wrong tool (for example this package's `umbraco_workspace_run_action` Save instead of the Copilot's
+   pick the wrong tool (for example this package's `umbraco_run_workspace_action` Save instead of the Copilot's
    `save`). Which of this package's tools to leave out is a design question.
 5. **Context window cost.** About 20 extra tool definitions are sent with every request.
 6. **Production hardening.** Until now, this package has been a dev-only spike. Running in editors' browsers in

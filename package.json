@@ -10,7 +10,8 @@
     "install-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm install",
     "build-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm run build",
     "watch-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm run watch",
-    "test-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm test"
+    "test-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm test",
+    "ci:check-tool-names": "node scripts/check-tool-names.mjs"
   },
   "private": true
 }

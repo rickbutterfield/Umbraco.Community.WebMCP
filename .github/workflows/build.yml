@@ -34,6 +34,9 @@ jobs:
       - name: Lint client
         run: npm run ci:lint-client
 
+      - name: Check tool names
+        run: npm run ci:check-tool-names
+
       - name: Test client
         run: |
           npx --prefix src/Umbraco.WebMCP.StaticAssets playwright install --with-deps chromium

@@ -14,16 +14,16 @@ work for packages such as Umbraco Forms without any package-specific code.
 | `umbraco_list_entity_actions` / `umbraco_run_entity_action` | always | The "..." menu of an entity |
 | `umbraco_list_create_options` / `umbraco_run_create_option` | always | The options in an entity's Create dialog |
 | `umbraco_list_modals` | always | Open modals, with their data, value and button labels |
-| `umbraco_modal_click_button` | always | Click a modal button by label |
-| `umbraco_modal_set_value` / `umbraco_modal_submit` / `umbraco_modal_close` | always | Drive a modal through its context |
+| `umbraco_click_modal_button` | always | Click a modal button by label |
+| `umbraco_set_modal_value` / `umbraco_submit_modal` / `umbraco_close_modal` | always | Drive a modal through its context |
 | `umbraco_list_allowed_document_types` | always | Allowed document types at root or under a parent |
 | `umbraco_open_new_document` / `umbraco_open_document` | always | Open the document workspace |
-| `umbraco_workspace_get_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state |
-| `umbraco_workspace_list_actions` / `umbraco_workspace_run_action` | any workspace open | The workspace footer buttons, such as Save |
-| `umbraco_document_get_state` | document workspace open | Key, variants, properties and current (unsaved) values |
-| `umbraco_document_set_name` | document workspace open | Set the name for a variant |
-| `umbraco_document_set_property_value` | document workspace open | Set a value by alias (stored format) |
-| `umbraco_document_save` / `umbraco_document_save_and_publish` | document workspace open | Same as the buttons |
+| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state |
+| `umbraco_list_workspace_actions` / `umbraco_run_workspace_action` | any workspace open | The workspace footer buttons, such as Save |
+| `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values |
+| `umbraco_set_document_name` | document workspace open | Set the name for a variant |
+| `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) |
+| `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md).
 
@@ -33,7 +33,7 @@ Packages can add their own tools; see [Adding tools from a package](extending.md
   hints to the agent, not restrictions.
 - **Actions that open a modal don't wait for it.** They return straight away with `completed: false`, so the agent
   can finish the modal with the modal tools.
-- **Prefer `umbraco_modal_click_button` to `umbraco_modal_submit`.** Many modals do their work in the button handler,
+- **Prefer `umbraco_click_modal_button` to `umbraco_submit_modal`.** Many modals do their work in the button handler,
   so submitting through the modal's context skips it.
 - **When two registrations share a tool name,** for example a document opened in a modal on top of another, the
   newest one handles calls until it closes.

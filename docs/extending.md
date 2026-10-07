@@ -50,6 +50,9 @@ Each tool has a `name`, a `description` written for an agent, an optional JSON S
 
 - **Prefix tool names with your package,** for example `myshop_…`. Tool names share one namespace, and the newest
   registration of a name wins, so `umbraco_…` names would replace this package's tools.
+- **Name tools `<package>_<verb>_<thing>`,** for example `myshop_publish_order`, not `myshop_order_publish`. This
+  package uses the same verb-first shape (`umbraco_list_modals`, `umbraco_save_document`), so an agent scanning the
+  tool list sees one pattern, and a `list_…` tool pairs with a `run_…` tool.
 - **Mark read-only tools `readOnlyHint` and tools that change data `consequentialHint`.**
 - **Run the backoffice's own code.** Call the same actions, repositories and contexts the UI uses, so tools respect
   permissions and do the same work as a click.
