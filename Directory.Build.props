@@ -1,0 +1,33 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Authors>Rick Butterfield</Authors>
+    <Copyright>Copyright © Rick Butterfield $([System.DateTime]::Today.ToString('yyyy'))</Copyright>
+    <Product>Umbraco WebMCP</Product>
+    <PackageProjectUrl>https://github.com/rickbutterfield/Umbraco-WebMCP</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rickbutterfield/Umbraco-WebMCP</RepositoryUrl>
+    <PackageTags>umbraco webmcp mcp ai</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+  </PropertyGroup>
+
+  <!-- Calculate version only once for the whole repository -->
+  <PropertyGroup>
+    <GitVersionBaseDirectory>$(MSBuildThisFileDirectory)</GitVersionBaseDirectory>
+  </PropertyGroup>
+
+  <!-- Use version range on project references (to limit on major version in generated packages) -->
+  <Target Name="_GetProjectReferenceVersionRanges" AfterTargets="_GetProjectReferenceVersions">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Condition="'%(ProjectVersion)' != ''">
+        <ProjectVersion>[%(ProjectVersion), $([MSBuild]::Add($([System.Text.RegularExpressions.Regex]::Match('%(ProjectVersion)', '^\d+').Value), 1)))</ProjectVersion>
+      </_ProjectReferencesWithVersions>
+    </ItemGroup>
+  </Target>
+</Project>

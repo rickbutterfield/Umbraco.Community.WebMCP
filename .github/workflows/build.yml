@@ -1,0 +1,54 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nerdbank.GitVersioning needs the history to calculate the version height
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/Umbraco.WebMCP.StaticAssets/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install client
+        run: npm run ci:install-client
+
+      - name: Lint client
+        run: npm run ci:lint-client
+
+      - name: Test client
+        run: |
+          npx --prefix src/Umbraco.WebMCP.StaticAssets playwright install --with-deps chromium
+          npm run ci:test-client
+
+      - name: Build client
+        run: npm run ci:build-client
+
+      - name: Build
+        run: dotnet build Umbraco.WebMCP.slnx --configuration Release
+
+      - name: Pack
+        run: dotnet pack src/Umbraco.WebMCP/Umbraco.WebMCP.csproj --configuration Release --no-build --output build.out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: build.out/*.nupkg

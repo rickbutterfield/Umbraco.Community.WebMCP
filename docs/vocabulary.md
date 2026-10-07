@@ -1,0 +1,36 @@
+# Vocabulary
+
+Terms used across this repository's code and docs. Use these words, and only with these meanings.
+
+## This package
+
+| Term | Meaning |
+|---|---|
+| **Tool** | One named action an agent can call, with a description, an optional JSON Schema input and `execute`. For example `umbraco_open_entity`. |
+| **Tool hub** | The in-page registry of tools (`umbWebMcpToolHub`). It exposes each tool name once, and when two registrations share a name, the newest one handles calls. |
+| **Toolset** | A backoffice extension that provides tools: `webMcpToolset` (available anywhere) or `webMcpWorkspaceToolset` (while a matching workspace is open). See [Adding tools from a package](extending.md). |
+| **Generic tools** | The tools this package provides for any section, tree, workspace, action or modal, discovered from the extension registry, as opposed to product-specific toolsets. |
+| **Page API** | `window.__umbWebMcp`, with `list()` and `call(name, input)`, for page scripts such as Playwright. Not to be confused with the Copilot bridge. |
+| **Copilot bridge** | The planned feature that offers this package's tools to the Umbraco.AI Copilot as frontend tools. See [docs/plans/copilot-bridge](plans/copilot-bridge/README.md). |
+| **Surface** | One way the tools reach an agent: WebMCP, the page API or the Copilot bridge. Each surface has its own switch for whether it loads in production. |
+| **Landmarks and controls** | The mental model for the tools. Landmarks are where you can go (sections, menus, trees, workspaces); controls are what you can do there (actions, create options, buttons). |
+| **Read-only / consequential** | The `readOnlyHint` and `consequentialHint` annotations: a tool that only reads, or one that changes data and should be confirmed. They're hints, not restrictions. |
+
+## Umbraco backoffice
+
+| Term | Meaning |
+|---|---|
+| **Extension registry** | The backoffice's list of registered extensions (`umbExtensionsRegistry`). The generic tools read it to find sections, trees, actions and workspaces. |
+| **Entity action** | An action in an item's "..." menu, such as Delete or Move (`entityAction`). |
+| **Create option** | An option in the dialog an item's Create action opens, such as New Form (`entityCreateOptionAction`). |
+| **Workspace action** | A button in a workspace footer, such as Save (`workspaceAction`). |
+| **Modal** | A dialog or sidebar opened through the modal manager. Its buttons may do work before it submits. |
+
+## Elsewhere
+
+| Term | Meaning |
+|---|---|
+| **WebMCP** | The browser API (`document.modelContext`) for pages to offer tools to in-browser agents; a W3C Community Group draft. |
+| **Developer MCP** | Umbraco's server-side MCP server, which works against the Management API as an API user. See [Umbraco MCP, WebMCP and Playwright](testing-layers.md). |
+| **Frontend tool** | An Umbraco.AI Copilot tool that runs in the browser (`uaiAgentFrontendTool`). See [Umbraco.AI Copilot frontend tools](umbraco-ai-copilot.md). |
+| **Plan folder** | `docs/plans/<feature-slug>/`, where a feature's brief, design and plan live while it's planned and built. See `CLAUDE.md`. |

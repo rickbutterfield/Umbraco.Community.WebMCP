@@ -1,0 +1,44 @@
+{
+  "name": "@umbraco-webmcp/backoffice",
+  "private": true,
+  "author": {
+    "name": "Rick Butterfield"
+  },
+  "bugs": {
+    "url": "https://github.com/rickbutterfield/Umbraco-WebMCP/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24.13",
+    "npm": ">=11"
+  },
+  "scripts": {
+    "build": "tsc && vite build",
+    "watch": "vite build --watch",
+    "lint": "eslint src",
+    "lint:errors": "npm run lint -- --quiet",
+    "lint:fix": "npm run lint -- --fix",
+    "test": "web-test-runner",
+    "test:watch": "web-test-runner --watch"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@open-wc/testing": "^4.0.0",
+    "@types/mocha": "^10.0.10",
+    "@umbraco-cms/backoffice": "^18.0.0",
+    "@web/dev-server-esbuild": "^1.0.5",
+    "@web/test-runner": "^0.20.2",
+    "@web/test-runner-playwright": "^0.11.1",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-lit": "^2.3.1",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-wc": "^3.1.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^6.2.6"
+  }
+}

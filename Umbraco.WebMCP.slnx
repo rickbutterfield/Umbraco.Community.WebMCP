@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/Umbraco.WebMCP.TestSite/Umbraco.WebMCP.TestSite.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Umbraco.WebMCP.StaticAssets/Umbraco.WebMCP.StaticAssets.csproj" />
+    <Project Path="src/Umbraco.WebMCP/Umbraco.WebMCP.csproj" />
+  </Folder>
+</Solution>

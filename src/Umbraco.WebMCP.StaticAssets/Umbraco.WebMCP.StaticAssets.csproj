@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <Title>Umbraco WebMCP - Static assets</Title>
+    <Description>Contains the backoffice assets for Umbraco WebMCP.</Description>
+    <StaticWebAssetBasePath>App_Plugins/Umbraco.WebMCP</StaticWebAssetBasePath>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <!-- Disable compression for static files, because MapStaticAssets() is not used anyway (yet) -->
+    <CompressionEnabled>false</CompressionEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <!-- Assumes that the client assets have already been built to wwwroot (npm run build-client) -->
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" Pack="true" />
+  </ItemGroup>
+</Project>

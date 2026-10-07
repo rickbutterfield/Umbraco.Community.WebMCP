@@ -1,0 +1,16 @@
+{
+  "name": "umbraco-webmcp",
+  "version": "0.0.0",
+  "description": "",
+  "scripts": {
+    "ci:install-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm ci --no-fund --no-audit --prefer-offline",
+    "ci:build-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm run build",
+    "ci:lint-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm run lint:errors",
+    "ci:test-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm test",
+    "install-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm install",
+    "build-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm run build",
+    "watch-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm run watch",
+    "test-client": "cd ./src/Umbraco.WebMCP.StaticAssets && npm test"
+  },
+  "private": true
+}
