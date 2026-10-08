@@ -12,18 +12,18 @@ skips the buttons, modals and routing a user would go through.
 ## Benchmarks
 
 Measured on 08-10-2026 on one machine; see [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test
-numbers and caveats.
+numbers, how the numbers moved as the tools improved, and caveats.
 
 | What | Variant | Pass rate | Result |
 |---|---|---|---|
-| Five CMS content acceptance tests, 10 runs each, median time of the step under test | Clicks, as in the CMS tests | 50/50 | 3.94 s |
-| | Page API navigates, clicks for the step under test | 50/50 | 3.65 s (−7%) |
-| | Everything through the page API (no longer tests the UI) | 49/50 | 2.86 s (−28%) |
-| Four content tasks given to an agent (Claude Sonnet, Playwright MCP), 5 runs each | Clicking only | 20/20 | 10 turns, 26 s, $0.055 |
-| | Told about the page API | 20/20 | 8 turns, 31 s, $0.063 |
+| Five CMS content acceptance tests, 10 runs each, median time of the step under test | Clicks, as in the CMS tests | 50/50 | 3.84 s |
+| | Page API navigates, clicks for the step under test | 50/50 | 3.64 s (−5%) |
+| | Everything through the page API (no longer tests the UI) | 50/50 | 3.03 s (−21%) |
+| Four content tasks given to an agent (Claude Sonnet, Playwright MCP), 5 runs each | Clicking only | 20/20 | 10 turns, 27 s, $0.054 |
+| | Told about the page API | 20/20 | 8 turns, 29 s, $0.049 |
 
-The page API made scripted tests faster and steadier. Agents took fewer turns with it on long UI paths, but listing
-every tool's schema made each task slightly slower and more expensive overall.
+The page API makes scripted tests a little faster and agents about 20% more economical in turns and 10% in cost, at
+about the same speed. The gain is largest where the UI path is long.
 
 ## Documentation
 
