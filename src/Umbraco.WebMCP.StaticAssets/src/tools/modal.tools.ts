@@ -1,44 +1,11 @@
 import type { UmbWebMcpTool } from '../model-context.ts';
 import { toPlain } from '../utils.ts';
+import { findButton, findModalElement, getButtons } from './modal-buttons.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UMB_MODAL_MANAGER_CONTEXT, type UmbModalContext } from '@umbraco-cms/backoffice/modal';
 
 const KEY_PROPERTY = { key: { type: 'string', description: 'From umbraco_list_modals.' } };
-
-/**
- * Walks the light and shadow DOM below `root`, depth first, without entering nested modals.
- */
-function* walk(root: Node, skip?: (element: Element) => boolean): Generator<Element> {
-	const children = [...((root as Element).shadowRoot?.children ?? []), ...((root as Element).children ?? [])];
-	for (const child of children) {
-		if (skip?.(child)) continue;
-		yield child;
-		yield* walk(child, skip);
-	}
-}
-
-/**
- * Finds the element a modal renders, which exposes its context as `modalContext` (UmbModalBaseElement).
- */
-function findModalElement(key: string) {
-	for (const element of walk(document.body)) {
-		if ((element as any).modalContext?.key === key) return element;
-	}
-	return undefined;
-}
-
-function getButtons(modalElement: Element) {
-	const isOtherModal = (element: Element) => element !== modalElement && (element as any).modalContext !== undefined;
-	return [...walk(modalElement, isOtherModal)]
-		.filter((element) => element.localName === 'uui-button')
-		.map((element) => ({
-			element: element as HTMLElement,
-			label: ((element as any).label || element.textContent || '').trim(),
-			disabled: Boolean((element as any).disabled),
-		}))
-		.filter((button) => button.label);
-}
 
 class UmbWebMcpModalWatcher extends UmbControllerBase {
 	modals: ReadonlyArray<UmbModalContext> = [];
@@ -69,7 +36,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			name: 'umbraco_list_modals',
 			title: 'List open modals',
 			description:
-				'Lists the open modals and sidebars, topmost last, with the data they were opened with, their current value and the labels of their buttons.',
+				'Lists the open modals and sidebars, topmost last, with the data they were opened with, their current value and their buttons (id, label and whether disabled).',
 			annotations: { readOnlyHint: true, untrustedContentHint: true },
 			async execute() {
 				return watcher.modals.map((modal) => ({
@@ -80,7 +47,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 					value: toPlain(modal.getValue()),
 					buttons: (() => {
 						const element = findModalElement(modal.key);
-						return element ? getButtons(element).map(({ label, disabled }) => ({ label, disabled })) : null;
+						return element ? getButtons(element).map(({ id, label, disabled }) => ({ id, label, disabled })) : null;
 					})(),
 				}));
 			},
@@ -106,24 +73,22 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			name: 'umbraco_click_modal_button',
 			title: 'Click modal button',
 			description:
-				'Clicks a button in an open modal by its label, such as Delete, Submit or Choose. Prefer this to umbraco_submit_modal, because many modals do their work in the button handler before submitting.',
+				'Clicks a button in an open modal, such as Delete, Submit or Choose. Pass its id where it has one, because labels change when the backoffice is translated; otherwise its label. Prefer this to umbraco_submit_modal, because many modals do their work in the button handler before submitting.',
 			annotations: { consequentialHint: true },
 			inputSchema: {
 				type: 'object',
 				properties: {
 					...KEY_PROPERTY,
-					label: { type: 'string', description: 'A button label from umbraco_list_modals.' },
+					id: { type: 'string', description: 'A button id from umbraco_list_modals. Preferred to label.' },
+					label: { type: 'string', description: 'A button label from umbraco_list_modals, if it has no id.' },
 				},
-				required: ['key', 'label'],
+				required: ['key'],
 			},
-			async execute({ key, label }: { key: string; label: string }) {
+			async execute({ key, id, label }: { key: string; id?: string; label?: string }) {
 				watcher.get(key);
 				const element = findModalElement(key);
 				if (!element) throw new Error(`The element for modal "${key}" is not rendered yet. Try again shortly.`);
-				const button = getButtons(element).find((x) => x.label.toLowerCase() === label.toLowerCase());
-				if (!button) throw new Error(`No button labelled "${label}". Use umbraco_list_modals for the labels.`);
-				if (button.disabled) throw new Error(`The "${label}" button is disabled.`);
-				button.element.click();
+				findButton(getButtons(element), { id, label }).element.click();
 				return { ok: true };
 			},
 		},
