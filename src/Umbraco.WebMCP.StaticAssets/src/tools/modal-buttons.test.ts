@@ -30,7 +30,11 @@ describe('modal buttons', () => {
 	});
 
 	it('leaves out the buttons of a modal opened on top', async () => {
-		const modal = await renderModal('a', html`<uui-button>Outer</uui-button><div class="inner"></div>`);
+		const modal = await renderModal(
+			'a',
+			html`<uui-button>Outer</uui-button>
+				<div class="inner"></div>`,
+		);
 		const inner = modal.querySelector('.inner')!;
 		(inner as any).modalContext = { key: 'b' };
 		inner.innerHTML = '<uui-button>Inner</uui-button>';

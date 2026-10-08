@@ -149,11 +149,7 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				execute: async (_input: object, call?: UmbWebMcpToolCall) => {
 					if (!this.#publishing) throw new Error('Publishing is not available for this document.');
 					const publishing = this.#publishing;
-					const { completed } = await runWithoutBlocking(
-						() => publishing.saveAndPublish(),
-						undefined,
-						call?.signal,
-					);
+					const { completed } = await runWithoutBlocking(() => publishing.saveAndPublish(), undefined, call?.signal);
 					return { completed, state: await this.#getState() };
 				},
 			},

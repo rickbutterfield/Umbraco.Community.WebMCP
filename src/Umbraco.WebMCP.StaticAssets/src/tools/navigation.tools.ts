@@ -348,7 +348,10 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 				required: ['documentKey'],
 			},
 			async execute({ documentKey }: { documentKey: string }, call?: UmbWebMcpToolCall) {
-				return openPath(UMB_EDIT_DOCUMENT_WORKSPACE_PATH_PATTERN.generateAbsolute({ unique: documentKey }), call?.signal);
+				return openPath(
+					UMB_EDIT_DOCUMENT_WORKSPACE_PATH_PATTERN.generateAbsolute({ unique: documentKey }),
+					call?.signal,
+				);
 			},
 		},
 	];

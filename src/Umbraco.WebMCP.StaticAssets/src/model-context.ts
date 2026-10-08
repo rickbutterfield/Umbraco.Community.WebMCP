@@ -66,9 +66,20 @@ interface UmbModelContextRegistration {
 function stableStringify(value: unknown): string {
 	return JSON.stringify(value, (_key, entry) =>
 		entry && typeof entry === 'object' && !Array.isArray(entry)
-			? Object.fromEntries(Object.keys(entry).sort().map((key) => [key, entry[key]]))
+			? Object.fromEntries(
+					Object.keys(entry)
+						.sort()
+						.map((key) => [key, entry[key]]),
+				)
 			: entry,
 	);
+}
+
+/**
+ * The first sentence of a description, or all of it if it has only one.
+ */
+export function firstSentence(description: string) {
+	return description.match(/^.+?[.!?](?=\s|$)/s)?.[0] ?? description;
 }
 
 /**
@@ -167,10 +178,28 @@ class UmbWebMcpToolHub {
 	}
 
 	list() {
-		return [...this.#stacks.values()].map((stack) => {
-			const { name, title, description, inputSchema, annotations } = stack[stack.length - 1].tool;
-			return { name, title, description, inputSchema, annotations };
+		return [...this.#stacks.keys()].map((name) => this.describe(name));
+	}
+
+	/**
+	 * Each tool's name, the first sentence of its description and its annotations: enough to choose a tool without
+	 * paying for every input schema. Use `describe` for the rest.
+	 */
+	summarise() {
+		return [...this.#stacks.keys()].map((name) => {
+			const { description, annotations } = this.describe(name);
+			return { name, summary: firstSentence(description), annotations };
 		});
+	}
+
+	/**
+	 * The full description of the registration handling `name`: title, description, input schema and annotations.
+	 */
+	describe(name: string) {
+		const stack = this.#stacks.get(name);
+		if (!stack?.length) throw new Error(`No WebMCP tool named "${name}" is registered right now.`);
+		const { title, description, inputSchema, annotations } = stack[stack.length - 1].tool;
+		return { name, title, description, inputSchema, annotations };
 	}
 
 	async call(name: string, input?: object, call: UmbWebMcpToolCall = {}) {
@@ -260,10 +289,15 @@ export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal, 
 /**
  * Exposes the same tools to page scripts, so Playwright (`page.evaluate`, Playwright MCP's `browser_evaluate`) and
  * browsers without WebMCP can call them. Only loaded when the package is enabled.
+ *
+ * `list()` is kept short, because agents read it whole: each tool's name, one-sentence summary and annotations.
+ * `describe(name)` returns a tool's full description and input schema, and `list({ full: true })` returns them all.
  */
 export function exposePageApi() {
 	(window as any).__umbWebMcp = {
-		list: () => umbWebMcpToolHub.list(),
+		list: ({ full = false }: { full?: boolean } = {}) =>
+			full ? umbWebMcpToolHub.list() : umbWebMcpToolHub.summarise(),
+		describe: (name: string) => umbWebMcpToolHub.describe(name),
 		call: (name: string, input?: object, call?: UmbWebMcpToolCall) => umbWebMcpToolHub.call(name, input, call),
 	};
 }

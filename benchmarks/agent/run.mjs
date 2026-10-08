@@ -34,7 +34,7 @@ const variants = args.variants.split(',');
 
 const VARIANT_PROMPTS = {
 	'page-api':
-		'The backoffice exposes named tools for agents. In the page, window.__umbWebMcp.list() lists them, with their descriptions and input schemas, and await window.__umbWebMcp.call(name, input) calls one. Call them with browser_evaluate, and prefer them to clicking. Some tools only appear once a workspace is open, so list them again after opening one.',
+		'The backoffice exposes named tools for agents. In the page, window.__umbWebMcp.list() lists them with a one-sentence summary each, window.__umbWebMcp.describe(name) returns the full description and input schema of one tool, and await window.__umbWebMcp.call(name, input) calls one. Call them with browser_evaluate, and prefer them to clicking. Tools that open a workspace return workspaceTools: the tools that only exist while it is open.',
 	playwright: 'Work through the UI with the Playwright browser tools.',
 };
 const PAGE_SCRIPT_TOOLS = ['mcp__playwright__browser_evaluate', 'mcp__playwright__browser_run_code_unsafe'];
