@@ -74,9 +74,11 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 	// Remembers which section an entity type was seen in, so umbraco_open_entity can build its path.
 	const sectionByEntityType = new Map<string, string>();
 
-	let searchProviderManifests: Array<any> = [];
-	new UmbExtensionsManifestInitializer(host, umbExtensionsRegistry, 'searchProvider', null, (permitted) => {
-		searchProviderManifests = permitted.map(({ manifest }) => manifest);
+	// The searches the backoffice search offers this user: each globalSearch extension names a search provider. Other
+	// search providers, such as the entity data picker's, only work inside their own UI.
+	let globalSearchManifests: Array<any> = [];
+	new UmbExtensionsManifestInitializer(host, umbExtensionsRegistry, 'globalSearch', null, (permitted) => {
+		globalSearchManifests = permitted.map(({ manifest }) => manifest);
 	});
 	const searchProviders = new Map<string, Promise<UmbSearchProviderLike | undefined>>();
 
@@ -135,11 +137,13 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 		return repository;
 	}
 
-	function getSearchProvider(manifest: any) {
-		let provider = searchProviders.get(manifest.alias);
+	function getSearchProvider(alias: string) {
+		let provider = searchProviders.get(alias);
 		if (!provider) {
+			const manifest = umbExtensionsRegistry.getByAlias<any>(alias);
+			if (!manifest) throw new Error(`The search provider "${alias}" is not registered.`);
 			provider = createExtensionApi(host, manifest) as Promise<UmbSearchProviderLike | undefined>;
-			searchProviders.set(manifest.alias, provider);
+			searchProviders.set(alias, provider);
 		}
 		return provider;
 	}
@@ -278,7 +282,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			name: 'umbraco_search_entities',
 			title: 'Search the backoffice',
 			description:
-				'Finds documents, media, members, data types and other entities by name, with the same search providers as the backoffice search, so the agent need not walk trees to find something. Returns each match with its entity type, key and path: open it with umbraco_navigate, or run its actions with umbraco_list_entity_actions.',
+				'Finds documents, media, members, data types and other entities by name, with the same searches as the backoffice search, so the agent need not walk trees to find something. Returns each match with its entity type, key and path: open it with umbraco_navigate, or run its actions with umbraco_list_entity_actions.',
 			annotations: { readOnlyHint: true, untrustedContentHint: true },
 			inputSchema: {
 				type: 'object',
@@ -294,10 +298,10 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 				const matches: Array<object> = [];
 				const errors: Array<{ provider: string; error: string }> = [];
 				await Promise.all(
-					searchProviderManifests.map(async (manifest) => {
+					globalSearchManifests.map(async (manifest) => {
 						const provider = localize.string(manifest.meta?.label ?? manifest.name);
 						try {
-							const api = await getSearchProvider(manifest);
+							const api = await getSearchProvider(manifest.meta?.searchProviderAlias);
 							const { data, error } = (await api?.search({ query, paging: { skip: 0, take } })) ?? {};
 							if (error) throw error;
 							for (const item of data?.items ?? []) {

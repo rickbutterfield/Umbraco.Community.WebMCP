@@ -130,7 +130,7 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				name: 'umbraco_save_document',
 				title: 'Save document',
 				description:
-					'Saves the open document, as the Save button does, and returns the notifications it showed, such as a validation error. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
+					'Saves the open document, as the Save button does, and returns any notifications it showed. Validation failures are returned as an error. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
 				annotations: { consequentialHint: true, untrustedContentHint: true },
 				execute: async (_input: object, call?: UmbWebMcpToolCall) => {
 					const outcome = startOutcome();

@@ -97,7 +97,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 				name: 'umbraco_run_workspace_action',
 				title: 'Run workspace action',
 				description:
-					'Runs a workspace footer action, as clicking its button does, and returns the notifications it showed, such as a validation error. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
+					'Runs a workspace footer action, as clicking its button does, and returns any notifications it showed. Validation failures are returned as an error. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
 				annotations: { consequentialHint: true },
 				inputSchema: {
 					type: 'object',

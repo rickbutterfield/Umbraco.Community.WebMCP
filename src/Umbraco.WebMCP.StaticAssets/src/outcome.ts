@@ -12,8 +12,9 @@ interface UmbNotificationHandlerLike {
 }
 
 /**
- * Remembers the notifications the backoffice has shown, so a tool can report the ones its action caused, such as
- * "Document saved" or a validation error, without the agent taking a screenshot.
+ * Remembers the notifications the backoffice has shown, so a tool can report the ones its action caused without the
+ * agent taking a screenshot. Umbraco 18 shows none for routine saves, moves or deletes; validation failures reject the
+ * action instead, and tools pass that error on.
  */
 export class UmbWebMcpNotificationLog {
 	#entries: Array<{ index: number; notification: UmbWebMcpNotification }> = [];
