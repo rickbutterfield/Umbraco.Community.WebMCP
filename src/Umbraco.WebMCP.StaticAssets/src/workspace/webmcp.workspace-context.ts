@@ -65,7 +65,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 	#createTools(): Array<UmbWebMcpTool> {
 		return [
 			{
-				name: 'umbraco_workspace_get_info',
+				name: 'umbraco_get_workspace_info',
 				title: 'Get open workspace',
 				description:
 					'Returns the workspace that is open: its alias, entity type and key, whether it is new and whether it has unsaved changes. When a workspace is open in a modal, this describes the modal one.',
@@ -73,7 +73,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 				execute: async () => this.#getInfo(),
 			},
 			{
-				name: 'umbraco_workspace_list_actions',
+				name: 'umbraco_list_workspace_actions',
 				title: 'List workspace actions',
 				description: 'Lists the buttons in the open workspace footer, such as Save, Save and publish or Submit.',
 				annotations: { readOnlyHint: true },
@@ -84,21 +84,21 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 					})),
 			},
 			{
-				name: 'umbraco_workspace_run_action',
+				name: 'umbraco_run_workspace_action',
 				title: 'Run workspace action',
 				description:
 					'Runs a workspace footer action, as clicking its button does. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
 				annotations: { consequentialHint: true },
 				inputSchema: {
 					type: 'object',
-					properties: { alias: { type: 'string', description: 'From umbraco_workspace_list_actions.' } },
+					properties: { alias: { type: 'string', description: 'From umbraco_list_workspace_actions.' } },
 					required: ['alias'],
 				},
 				execute: async ({ alias }: { alias: string }) => {
 					const action = this.#workspaceActions.find((controller) => controller.manifest.alias === alias)?.api;
 					if (!action)
 						throw new Error(
-							`Action "${alias}" is not available in this workspace. Use umbraco_workspace_list_actions.`,
+							`Action "${alias}" is not available in this workspace. Use umbraco_list_workspace_actions.`,
 						);
 					const { completed } = await runWithoutBlocking(() => action.execute());
 					return { completed, workspace: this.#getInfo() };

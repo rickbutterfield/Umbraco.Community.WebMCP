@@ -308,7 +308,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			name: 'umbraco_open_new_document',
 			title: 'Open a new document',
 			description:
-				'Opens the document workspace to create a new, unsaved document of the given document type. Use the umbraco_document_* tools to fill it in and save it.',
+				'Opens the document workspace to create a new, unsaved document of the given document type. Use the document tools (umbraco_set_document_name, umbraco_set_document_property_value, umbraco_save_document) to fill it in and save it.',
 			inputSchema: {
 				type: 'object',
 				properties: {

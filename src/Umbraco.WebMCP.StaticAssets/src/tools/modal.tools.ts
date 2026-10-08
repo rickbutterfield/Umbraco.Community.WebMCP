@@ -86,7 +86,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			},
 		},
 		{
-			name: 'umbraco_modal_set_value',
+			name: 'umbraco_set_modal_value',
 			title: 'Set modal value',
 			description:
 				'Replaces the value of an open modal, for example the selection of a picker. The shape depends on the modal: read its current value with umbraco_list_modals first. The modal UI may not show the change.',
@@ -102,10 +102,10 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			},
 		},
 		{
-			name: 'umbraco_modal_click_button',
+			name: 'umbraco_click_modal_button',
 			title: 'Click modal button',
 			description:
-				'Clicks a button in an open modal by its label, such as Delete, Submit or Choose. Prefer this to umbraco_modal_submit, because many modals do their work in the button handler before submitting.',
+				'Clicks a button in an open modal by its label, such as Delete, Submit or Choose. Prefer this to umbraco_submit_modal, because many modals do their work in the button handler before submitting.',
 			annotations: { consequentialHint: true },
 			inputSchema: {
 				type: 'object',
@@ -127,10 +127,10 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			},
 		},
 		{
-			name: 'umbraco_modal_submit',
+			name: 'umbraco_submit_modal',
 			title: 'Submit modal',
 			description:
-				'Submits an open modal with its current value, straight through its context. This skips any work the modal does in its own button handler, so use umbraco_modal_click_button when the modal has a confirm button.',
+				'Submits an open modal with its current value, straight through its context. This skips any work the modal does in its own button handler, so use umbraco_click_modal_button when the modal has a confirm button.',
 			annotations: { consequentialHint: true },
 			inputSchema: { type: 'object', properties: KEY_PROPERTY, required: ['key'] },
 			async execute({ key }: { key: string }) {
@@ -139,7 +139,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			},
 		},
 		{
-			name: 'umbraco_modal_close',
+			name: 'umbraco_close_modal',
 			title: 'Close modal',
 			description: 'Closes an open modal without submitting it, as its cancel or close button does.',
 			inputSchema: { type: 'object', properties: KEY_PROPERTY, required: ['key'] },

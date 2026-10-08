@@ -41,6 +41,8 @@ Sources: [Umbraco-CMS-MCP-Dev](https://github.com/umbraco/Umbraco-CMS-MCP-Dev),
 
 ## A mental model: landmarks and controls
 
+*A metaphor, not ARIA: these aren't ARIA landmark roles. The idea rhymes with them, though, because both give a non-visual user a map of the places and the things you can do there.*
+
 The tools expose the backoffice's landmarks, the places a person navigates by, and the controls at each of them.
 
 - **Landmarks** are what a person sees: sections, sidebar menus, trees and workspaces (`umbraco_list_sections`,
@@ -63,8 +65,8 @@ The tools call the same code the click handlers call, one layer below the page. 
 | Navigation (`umbraco_navigate`, `umbraco_open_entity`) | `history.pushState`, which the backoffice router listens to | Same as clicking a link, but the sidebar tree isn't expanded or highlighted |
 | Trees (`umbraco_get_tree_items`) | Asks the tree's own repository | Doesn't touch the sidebar tree on screen |
 | Entity actions and create options | Builds the same action with the same inputs and permission checks as the "..." menu, then runs it | Same code, but the menu never opens; the action is hosted on a hidden element, so side effects tied to the tree item may differ |
-| Workspace buttons (`umbraco_workspace_run_action`) | Runs the same action as the footer button | Same code, but the button's own spinner and success state don't show |
-| Modal buttons (`umbraco_modal_click_button`) | `.click()` on the real button | The closest to Playwright: the modal's own handler runs |
+| Workspace buttons (`umbraco_run_workspace_action`) | Runs the same action as the footer button | Same code, but the button's own spinner and success state don't show |
+| Modal buttons (`umbraco_click_modal_button`) | `.click()` on the real button | The closest to Playwright: the modal's own handler runs |
 | Modal and document values | Writes into the modal's or workspace's data | Skips the editor UI, including its validation and formatting |
 
 So Playwright tests the UI, and the tools test the behaviour behind it. Tool calls are faster, don't break when
@@ -102,7 +104,7 @@ headless CI, tree expansion races, and elements that steal clicks.
 | Part of a test | With the tools | Verdict |
 |---|---|---|
 | Getting to the entity or workspace | `umbraco_get_tree_items`, `umbraco_open_entity`, `umbraco_run_create_option`: no hover, no tree, no selectors | **Strong fit.** It's not under test, and it causes most of the flakiness |
-| Waiting until the workspace is ready | `umbraco_workspace_get_info` exposes new and unsaved state; a "workspace loaded" check would close data races | **Good fit,** with one tool to add |
+| Waiting until the workspace is ready | `umbraco_get_workspace_info` exposes new and unsaved state; a "workspace loaded" check would close data races | **Good fit,** with one tool to add |
 | The feature under test | Keep Playwright clicks | **Not a fit.** Tools would skip what you're testing |
 | Asserting | Can also check state the API can't see yet, such as unsaved changes | **Small gain** |
 
