@@ -1,4 +1,4 @@
-import type { UmbWebMcpTool, UmbWebMcpToolCall } from '../model-context.ts';
+import type { UmbWebMcpTool, UmbWebMcpToolAnnotations, UmbWebMcpToolCall } from '../model-context.ts';
 import { runWithoutBlocking, waitForQuiet } from '../utils.ts';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbEntityContext } from '@umbraco-cms/backoffice/entity';
@@ -90,6 +90,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 		type: 'entityAction' | 'entityCreateOptionAction',
 		names: { list: string; run: string },
 		text: { listTitle: string; listDescription: string; runTitle: string; runDescription: string },
+		runAnnotations: UmbWebMcpToolAnnotations,
 	): Array<UmbWebMcpTool> {
 		return [
 			{
@@ -115,7 +116,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				name: names.run,
 				title: text.runTitle,
 				description: text.runDescription,
-				annotations: { consequentialHint: true },
+				annotations: runAnnotations,
 				inputSchema: {
 					type: 'object',
 					properties: { ...ENTITY_PROPERTIES, alias: { type: 'string', description: `From ${names.list}.` } },
@@ -166,6 +167,9 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				runDescription:
 					'Runs an entity action, as clicking it in the "..." menu does. Most actions open a modal: this returns while it is open, with completed false, so use umbraco_list_modals and the other modal tools to finish it. To create something, prefer umbraco_run_create_option.',
 			},
+			// Some actions, such as Reload, change nothing, but Delete, Trash and Move do, so every call is treated as
+			// consequential.
+			{ consequentialHint: true },
 		),
 		...createListAndRunTools(
 			'entityCreateOptionAction',
@@ -178,6 +182,8 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				runDescription:
 					"Runs a create option directly, skipping the Create dialog. Most open the new item's workspace; some, such as New Folder, open a modal instead and return completed false.",
 			},
+			// Opens an unsaved workspace or a modal; nothing is saved until the agent saves or submits.
+			{},
 		),
 	];
 }
