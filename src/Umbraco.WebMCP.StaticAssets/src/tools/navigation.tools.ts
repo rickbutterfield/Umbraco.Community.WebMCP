@@ -37,6 +37,20 @@ interface UmbTreeRepository {
 	}>;
 }
 
+interface UmbSearchProviderLike {
+	search(args: {
+		query: string;
+		paging?: { skip: number; take: number };
+	}): Promise<{ data?: { items: Array<any>; total: number }; error?: unknown }>;
+}
+
+/**
+ * Search results link to their workspace with a path relative to /umbraco/, such as section/content/workspace/....
+ */
+function toBackofficePath(href: string) {
+	return href.startsWith('/') ? href : `/umbraco/${href}`;
+}
+
 function getCurrentSectionPathname() {
 	return location.pathname.match(BACKOFFICE_PATH_PATTERN)?.[1] ?? null;
 }
@@ -59,6 +73,12 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 	const treeRepositories = new Map<string, Promise<UmbTreeRepository | undefined>>();
 	// Remembers which section an entity type was seen in, so umbraco_open_entity can build its path.
 	const sectionByEntityType = new Map<string, string>();
+
+	let searchProviderManifests: Array<any> = [];
+	new UmbExtensionsManifestInitializer(host, umbExtensionsRegistry, 'searchProvider', null, (permitted) => {
+		searchProviderManifests = permitted.map(({ manifest }) => manifest);
+	});
+	const searchProviders = new Map<string, Promise<UmbSearchProviderLike | undefined>>();
 
 	let allowedSectionManifests: Array<UmbSectionManifestLike> = [];
 	new UmbExtensionsManifestInitializer(host, umbExtensionsRegistry, 'section', null, (permitted) => {
@@ -113,6 +133,15 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			treeRepositories.set(treeAlias, repository);
 		}
 		return repository;
+	}
+
+	function getSearchProvider(manifest: any) {
+		let provider = searchProviders.get(manifest.alias);
+		if (!provider) {
+			provider = createExtensionApi(host, manifest) as Promise<UmbSearchProviderLike | undefined>;
+			searchProviders.set(manifest.alias, provider);
+		}
+		return provider;
 	}
 
 	async function getDocumentTypeOf(documentKey: string) {
@@ -243,6 +272,47 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 					total: data?.total ?? items.length,
 					items,
 				};
+			},
+		},
+		{
+			name: 'umbraco_search_entities',
+			title: 'Search the backoffice',
+			description:
+				'Finds documents, media, members, data types and other entities by name, with the same search providers as the backoffice search, so the agent need not walk trees to find something. Returns each match with its entity type, key and path: open it with umbraco_navigate, or run its actions with umbraco_list_entity_actions.',
+			annotations: { readOnlyHint: true, untrustedContentHint: true },
+			inputSchema: {
+				type: 'object',
+				properties: {
+					query: { type: 'string', description: 'Text to search for, such as part of a name.' },
+					entityType: { type: 'string', description: 'Only return matches of this entity type, for example document.' },
+					take: { type: 'number', default: 10, description: 'The most matches to return from each provider.' },
+				},
+				required: ['query'],
+			},
+			async execute({ query, entityType, take = 10 }: { query: string; entityType?: string; take?: number }) {
+				if (!query?.trim()) throw new Error('Pass some text to search for.');
+				const matches: Array<object> = [];
+				const errors: Array<{ provider: string; error: string }> = [];
+				await Promise.all(
+					searchProviderManifests.map(async (manifest) => {
+						const provider = localize.string(manifest.meta?.label ?? manifest.name);
+						try {
+							const api = await getSearchProvider(manifest);
+							const { data, error } = (await api?.search({ query, paging: { skip: 0, take } })) ?? {};
+							if (error) throw error;
+							for (const item of data?.items ?? []) {
+								if (entityType && item.entityType !== entityType) continue;
+								const path = item.href ? toBackofficePath(item.href) : null;
+								const section = path?.match(BACKOFFICE_PATH_PATTERN)?.[1];
+								if (section) sectionByEntityType.set(item.entityType, section);
+								matches.push({ provider, entityType: item.entityType, unique: item.unique, name: item.name, path });
+							}
+						} catch (error) {
+							errors.push({ provider, error: error instanceof Error ? error.message : String(error) });
+						}
+					}),
+				);
+				return errors.length ? { matches, errors } : { matches };
 			},
 		},
 		{
