@@ -12,9 +12,18 @@ const tool = (name: string, result: unknown): UmbWebMcpTool => ({
 
 interface FakeRegistration {
 	name: string;
+	description: string;
+	inputSchema?: object;
 	signal?: AbortSignal;
 	execute(input: object): Promise<string>;
 }
+
+const describedTool = (name: string, description: string, inputSchema?: object): UmbWebMcpTool => ({
+	name,
+	description,
+	inputSchema,
+	execute: async () => description,
+});
 
 /**
  * Installs a fake `document.modelContext` for the duration of a test.
@@ -119,13 +128,90 @@ describe('UmbWebMcpToolHub', () => {
 		});
 	});
 
+	describe('schemas of shared names', () => {
+		let fake: ReturnType<typeof installFakeModelContext>;
+		const forName = (name: string) => fake.registrations.filter((x) => x.name === name);
+		const activeFor = (name: string) => fake.active().filter((x) => x.name === name);
+
+		beforeEach(() => (fake = installFakeModelContext()));
+		afterEach(() => fake.uninstall());
+
+		it('does not register again when the schema is the same', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Opens a thing', { type: 'object' })], new AbortController().signal);
+			registerTools([describedTool(name, 'Opens a thing', { type: 'object' })], new AbortController().signal);
+
+			expect(forName(name)).to.have.length(1);
+		});
+
+		it('treats schemas that differ only in key order as the same', () => {
+			const name = uniqueName();
+			const first = { type: 'object', properties: { a: { type: 'string' }, b: { type: 'number' } } };
+			const second = { properties: { b: { type: 'number' }, a: { type: 'string' } }, type: 'object' };
+			registerTools([describedTool(name, 'Opens a thing', first)], new AbortController().signal);
+			registerTools([describedTool(name, 'Opens a thing', second)], new AbortController().signal);
+
+			expect(forName(name)).to.have.length(1);
+		});
+
+		it('registers again with the newer description', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Older description')], new AbortController().signal);
+			registerTools([describedTool(name, 'Newer description')], new AbortController().signal);
+
+			expect(activeFor(name).map((x) => x.description)).to.deep.equal(['Newer description']);
+		});
+
+		it('registers again with the newer input schema', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Same', { type: 'object' })], new AbortController().signal);
+			const newer = { type: 'object', properties: { key: { type: 'string' } } };
+			registerTools([describedTool(name, 'Same', newer)], new AbortController().signal);
+
+			expect(activeFor(name).map((x) => x.inputSchema)).to.deep.equal([newer]);
+		});
+
+		it('restores the previous schema when the newer registration aborts', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Older description')], new AbortController().signal);
+			const newer = new AbortController();
+			registerTools([describedTool(name, 'Newer description')], newer.signal);
+			newer.abort();
+
+			expect(activeFor(name).map((x) => x.description)).to.deep.equal(['Older description']);
+		});
+
+		it('does not register again when the restored schema is the same', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Same')], new AbortController().signal);
+			const newer = new AbortController();
+			registerTools([describedTool(name, 'Same')], newer.signal);
+			newer.abort();
+
+			expect(forName(name)).to.have.length(1);
+		});
+
+		it('lists the handling registration in the page API', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Older description')], new AbortController().signal);
+			const newer = new AbortController();
+			registerTools([describedTool(name, 'Newer description')], newer.signal);
+			exposePageApi();
+			const listed = () => (window as any).__umbWebMcp.list().find((x: { name: string }) => x.name === name);
+
+			expect(listed().description).to.equal('Newer description');
+			newer.abort();
+			expect(listed().description).to.equal('Older description');
+		});
+	});
+
 	describe('with WebMCP available', () => {
 		let fake: ReturnType<typeof installFakeModelContext>;
 
 		beforeEach(() => (fake = installFakeModelContext()));
 		afterEach(() => fake.uninstall());
 
-		it('registers each name with WebMCP once', () => {
+		it('keeps one active WebMCP registration per name', () => {
 			const name = uniqueName();
 			registerTools([tool(name, 'older')], new AbortController().signal);
 			registerTools([tool(name, 'newer')], new AbortController().signal);
