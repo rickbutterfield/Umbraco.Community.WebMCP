@@ -1,6 +1,6 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import { registerTools, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
-import { runWithoutBlocking } from '../utils.ts';
+import { runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbExtensionsApiInitializer } from '@umbraco-cms/backoffice/extension-api';
@@ -9,7 +9,8 @@ import { UmbLocalizationController } from '@umbraco-cms/backoffice/localization-
 
 /**
  * Created in every workspace. Registers tools that work for any workspace, such as running its footer actions, and
- * runs the `webMcpWorkspaceToolset` extensions whose conditions match this workspace.
+ * runs the `webMcpWorkspaceToolset` extensions whose conditions match this workspace. Nothing is registered until the
+ * workspace has loaded, so a tool that appears can be used straight away.
  */
 export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 	#abortController = new AbortController();
@@ -17,10 +18,14 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 	#workspace: any;
 	#workspaceActions: Array<any> = [];
 	#localize = new UmbLocalizationController(this);
+	#ready: Promise<unknown>;
+	#toolsets: Array<UmbWebMcpToolsetApi | undefined> = [];
 
 	constructor(host: UmbControllerHost, workspace: unknown) {
 		super(host);
 		this.#workspace = workspace;
+		// Registers anyway if loading takes too long, because the tools also report a workspace that failed to load
+		this.#ready = whenWorkspaceReady(workspace, this.#abortController.signal).catch(() => undefined);
 
 		new UmbExtensionsApiInitializer(
 			this,
@@ -37,17 +42,21 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 			'webMcpWorkspaceToolset',
 			[workspace],
 			undefined,
-			(controllers) => this.#registerToolsets(controllers.map((controller) => controller.api as UmbWebMcpToolsetApi)),
+			(controllers) => {
+				this.#toolsets = controllers.map((controller) => controller.api as UmbWebMcpToolsetApi);
+				this.#ready.then(() => this.#registerToolsets());
+			},
 		);
 
-		registerTools(this.#createTools(), this.#abortController.signal);
+		this.#ready.then(() => registerTools(this.#createTools(), this.#abortController.signal, 'workspace'));
 	}
 
-	#registerToolsets(toolsets: Array<UmbWebMcpToolsetApi | undefined>) {
+	#registerToolsets() {
+		if (this.#abortController.signal.aborted) return;
 		this.#toolsetAbortController?.abort();
 		this.#toolsetAbortController = new AbortController();
-		for (const toolset of toolsets) {
-			if (toolset) registerTools(toolset.getTools(), this.#toolsetAbortController.signal);
+		for (const toolset of this.#toolsets) {
+			if (toolset) registerTools(toolset.getTools(), this.#toolsetAbortController.signal, 'workspace');
 		}
 	}
 

@@ -1,5 +1,5 @@
 import { expect } from '@open-wc/testing';
-import { exposePageApi, registerTools, umbWebMcpToolHub, type UmbWebMcpTool } from './model-context.js';
+import { exposePageApi, openPath, registerTools, umbWebMcpToolHub, type UmbWebMcpTool } from './model-context.js';
 
 let toolCounter = 0;
 const uniqueName = () => `test_tool_${++toolCounter}`;
@@ -312,6 +312,84 @@ describe('UmbWebMcpToolHub', () => {
 			await fake.registrations.find((x) => x.name === name)!.execute({}, { signal: controller.signal });
 
 			expect(seen).to.equal(controller.signal);
+		});
+	});
+
+	describe('scopes', () => {
+		it('lists the names whose handling registration is in a scope', () => {
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal, 'workspace');
+
+			expect(umbWebMcpToolHub.namesInScope('workspace')).to.include(name);
+		});
+
+		it('leaves out a name whose newest registration has no scope', () => {
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal, 'workspace');
+			registerTools([tool(name, 2)], new AbortController().signal);
+
+			expect(umbWebMcpToolHub.namesInScope('workspace')).not.to.include(name);
+		});
+
+		it('tells listeners about registrations and removals', () => {
+			let changes = 0;
+			const unsubscribe = umbWebMcpToolHub.onChange(() => changes++);
+			const controller = new AbortController();
+			registerTools([tool(uniqueName(), 1)], controller.signal);
+			controller.abort();
+			unsubscribe();
+			registerTools([tool(uniqueName(), 1)], new AbortController().signal);
+
+			expect(changes).to.equal(2);
+		});
+
+		it('waits for tools registered in the scope later', async () => {
+			const since = umbWebMcpToolHub.generation;
+			setTimeout(() => registerTools([tool(uniqueName(), 1)], new AbortController().signal, 'workspace'), 20);
+
+			expect(await umbWebMcpToolHub.waitForScope('workspace', since, { maxMs: 1000, quietMs: 10 })).to.equal(true);
+		});
+
+		it('does not count registrations from before', async () => {
+			registerTools([tool(uniqueName(), 1)], new AbortController().signal, 'workspace');
+			const since = umbWebMcpToolHub.generation;
+
+			expect(await umbWebMcpToolHub.waitForScope('workspace', since, { maxMs: 30, quietMs: 10 })).to.equal(false);
+		});
+
+		it('stops waiting when the caller cancels', async () => {
+			const controller = new AbortController();
+			const waiting = umbWebMcpToolHub.waitForScope('workspace', umbWebMcpToolHub.generation, {
+				signal: controller.signal,
+				maxMs: 10_000,
+			});
+			controller.abort(new Error('cancelled'));
+			let error: unknown;
+			try {
+				await waiting;
+			} catch (e) {
+				error = e;
+			}
+
+			expect((error as Error).message).to.equal('cancelled');
+		});
+	});
+
+	describe('opening a path', () => {
+		const original = location.pathname + location.search;
+		afterEach(() => history.replaceState(null, '', original));
+
+		it('returns straight away for a path without a workspace', async () => {
+			expect(await openPath('/umbraco/section/settings')).to.deep.equal({ navigatedTo: '/umbraco/section/settings' });
+		});
+
+		it('waits for the workspace and returns its tools', async () => {
+			const name = uniqueName();
+			setTimeout(() => registerTools([tool(name, 1)], new AbortController().signal, 'workspace'), 20);
+			const result: any = await openPath('/umbraco/section/content/workspace/document/edit/abc');
+
+			expect(result.workspaceReady).to.equal(true);
+			expect(result.workspaceTools).to.include(name);
 		});
 	});
 

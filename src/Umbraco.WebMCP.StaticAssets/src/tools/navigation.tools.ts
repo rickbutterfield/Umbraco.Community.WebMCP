@@ -1,5 +1,4 @@
-import type { UmbWebMcpTool } from '../model-context.ts';
-import { navigate } from '../utils.ts';
+import { openPath, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import {
 	UMB_CREATE_DOCUMENT_WORKSPACE_PATH_PATTERN,
@@ -144,15 +143,15 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			name: 'umbraco_navigate',
 			title: 'Navigate the backoffice',
 			description:
-				'Navigates the backoffice to a path, for example /umbraco/section/settings. Unsaved changes may prompt a discard dialog.',
+				'Navigates the backoffice to a path, for example /umbraco/section/settings. When the path opens a workspace, waits until it has loaded and returns workspaceTools. Unsaved changes may prompt a discard dialog.',
 			inputSchema: {
 				type: 'object',
 				properties: { path: { type: 'string', description: 'An absolute backoffice path starting with /umbraco/.' } },
 				required: ['path'],
 			},
-			async execute({ path }: { path: string }) {
+			async execute({ path }: { path: string }, call?: UmbWebMcpToolCall) {
 				if (!path?.startsWith('/umbraco/')) throw new Error('Path must start with /umbraco/.');
-				return navigate(path);
+				return openPath(path, call?.signal);
 			},
 		},
 		{
@@ -250,7 +249,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			name: 'umbraco_open_entity',
 			title: 'Open an entity workspace',
 			description:
-				'Opens the workspace for an entity, such as a document, a form or a data type, using the standard path section/{section}/workspace/{entityType}/edit/{unique}. Omit unique to open the workspace root, for example a collection. Products that build their own paths (Commerce, for example) need their own tools.',
+				'Opens the workspace for an entity, such as a document, a form or a data type, using the standard path section/{section}/workspace/{entityType}/edit/{unique}. Omit unique to open the workspace root, for example a collection. Waits until the workspace has loaded, then returns workspaceTools: the tools that work on it. Products that build their own paths (Commerce, for example) need their own tools.',
 			inputSchema: {
 				type: 'object',
 				properties: {
@@ -264,15 +263,19 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 				},
 				required: ['entityType'],
 			},
-			async execute({ entityType, unique, section }: { entityType: string; unique?: string; section?: string }) {
+			async execute(
+				{ entityType, unique, section }: { entityType: string; unique?: string; section?: string },
+				call?: UmbWebMcpToolCall,
+			) {
 				const sectionName = section
 					? findSection(section).pathname
 					: (sectionByEntityType.get(entityType) ?? getCurrentSectionPathname());
 				if (!sectionName) throw new Error(`Don't know which section "${entityType}" belongs to, so pass section.`);
-				return navigate(
+				return openPath(
 					unique
 						? UMB_WORKSPACE_EDIT_PATH_PATTERN.generateAbsolute({ sectionName, entityType, unique })
 						: UMB_WORKSPACE_PATH_PATTERN.generateAbsolute({ sectionName, entityType }),
+					call?.signal,
 				);
 			},
 		},
@@ -308,7 +311,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			name: 'umbraco_open_new_document',
 			title: 'Open a new document',
 			description:
-				'Opens the document workspace to create a new, unsaved document of the given document type. Use the document tools (umbraco_set_document_name, umbraco_set_document_property_value, umbraco_save_document) to fill it in and save it.',
+				'Opens the document workspace to create a new, unsaved document of the given document type. Waits until it has loaded, then returns workspaceTools: the document tools (umbraco_set_document_name, umbraco_set_document_property_value, umbraco_save_document) to fill it in and save it.',
 			inputSchema: {
 				type: 'object',
 				properties: {
@@ -320,27 +323,32 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 				},
 				required: ['documentTypeKey'],
 			},
-			async execute({ documentTypeKey, parentDocumentKey }: { documentTypeKey: string; parentDocumentKey?: string }) {
-				return navigate(
+			async execute(
+				{ documentTypeKey, parentDocumentKey }: { documentTypeKey: string; parentDocumentKey?: string },
+				call?: UmbWebMcpToolCall,
+			) {
+				return openPath(
 					UMB_CREATE_DOCUMENT_WORKSPACE_PATH_PATTERN.generateAbsolute({
 						parentEntityType: parentDocumentKey ? UMB_DOCUMENT_ENTITY_TYPE : UMB_DOCUMENT_ROOT_ENTITY_TYPE,
 						parentUnique: parentDocumentKey ?? null,
 						documentTypeUnique: documentTypeKey,
 					}),
+					call?.signal,
 				);
 			},
 		},
 		{
 			name: 'umbraco_open_document',
 			title: 'Open a document',
-			description: 'Opens an existing document in the document workspace.',
+			description:
+				'Opens an existing document in the document workspace. Waits until it has loaded, then returns workspaceTools: the tools that work on it.',
 			inputSchema: {
 				type: 'object',
 				properties: { documentKey: { type: 'string' } },
 				required: ['documentKey'],
 			},
-			async execute({ documentKey }: { documentKey: string }) {
-				return navigate(UMB_EDIT_DOCUMENT_WORKSPACE_PATH_PATTERN.generateAbsolute({ unique: documentKey }));
+			async execute({ documentKey }: { documentKey: string }, call?: UmbWebMcpToolCall) {
+				return openPath(UMB_EDIT_DOCUMENT_WORKSPACE_PATH_PATTERN.generateAbsolute({ unique: documentKey }), call?.signal);
 			},
 		},
 	];

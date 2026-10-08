@@ -1,4 +1,9 @@
-import type { UmbWebMcpTool, UmbWebMcpToolAnnotations, UmbWebMcpToolCall } from '../model-context.ts';
+import {
+	openPath,
+	type UmbWebMcpTool,
+	type UmbWebMcpToolAnnotations,
+	type UmbWebMcpToolCall,
+} from '../model-context.ts';
 import { runWithoutBlocking, waitForQuiet } from '../utils.ts';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbEntityContext } from '@umbraco-cms/backoffice/entity';
@@ -133,8 +138,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 					const href = await action.getHref?.();
 					if (href) {
 						dispose();
-						history.pushState(null, '', href);
-						return { completed: true, navigatedTo: location.pathname };
+						return { completed: true, ...(await openPath(href, call?.signal)) };
 					}
 
 					let work: Promise<unknown>;
@@ -180,7 +184,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 					'Lists what can be created under an entity, as in the dialog its Create action opens: for example New Form, a form template or New Folder.',
 				runTitle: 'Run a create option',
 				runDescription:
-					"Runs a create option directly, skipping the Create dialog. Most open the new item's workspace; some, such as New Folder, open a modal instead and return completed false.",
+					"Runs a create option directly, skipping the Create dialog. Most open the new item's workspace, wait until it has loaded and return workspaceTools; some, such as New Folder, open a modal instead and return completed false.",
 			},
 			// Opens an unsaved workspace or a modal; nothing is saved until the agent saves or submits.
 			{},

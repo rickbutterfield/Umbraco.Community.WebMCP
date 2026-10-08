@@ -1,6 +1,6 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import type { UmbWebMcpTool, UmbWebMcpToolCall } from '../model-context.ts';
-import { runWithoutBlocking } from '../utils.ts';
+import { runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import {
@@ -47,6 +47,17 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 		return this.#workspace;
 	}
 
+	/**
+	 * The workspace, once it has loaded. A document reloads after some actions, and setting a value while it does fails
+	 * with "Data is missing".
+	 */
+	async #getReadyWorkspace(signal?: AbortSignal) {
+		const workspace = this.#getWorkspace();
+		if (!(await whenWorkspaceReady(workspace, signal)))
+			throw new Error('The document is still loading. Try again shortly.');
+		return workspace;
+	}
+
 	async #getState() {
 		const workspace = this.#getWorkspace();
 		const properties = await workspace.structure.getContentTypeProperties();
@@ -89,8 +100,8 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 					properties: { name: { type: 'string' }, ...VARIANT_PROPERTIES },
 					required: ['name'],
 				},
-				execute: async (input: UmbVariantInput & { name: string }) => {
-					this.#getWorkspace().setName(input.name, toVariantId(input));
+				execute: async (input: UmbVariantInput & { name: string }, call?: UmbWebMcpToolCall) => {
+					(await this.#getReadyWorkspace(call?.signal)).setName(input.name, toVariantId(input));
 					return { ok: true };
 				},
 			},
@@ -108,8 +119,9 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 					},
 					required: ['alias', 'value'],
 				},
-				execute: async (input: UmbVariantInput & { alias: string; value: unknown }) => {
-					await this.#getWorkspace().setPropertyValue(input.alias, input.value, toVariantId(input));
+				execute: async (input: UmbVariantInput & { alias: string; value: unknown }, call?: UmbWebMcpToolCall) => {
+					const workspace = await this.#getReadyWorkspace(call?.signal);
+					await workspace.setPropertyValue(input.alias, input.value, toVariantId(input));
 					return { ok: true };
 				},
 			},

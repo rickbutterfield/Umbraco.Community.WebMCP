@@ -1,3 +1,5 @@
+import { navigate, waitForQuiet } from './utils.ts';
+
 export interface UmbWebMcpToolAnnotations {
 	readOnlyHint?: boolean;
 	consequentialHint?: boolean;
@@ -40,9 +42,17 @@ export function getModelContext(): ModelContext | undefined {
 	return (document as any).modelContext ?? (navigator as any).modelContext;
 }
 
+/**
+ * Where a registration comes from. Tools registered by a workspace are scoped to `workspace`, so tools that open one
+ * can wait for them.
+ */
+export type UmbWebMcpToolScope = 'workspace';
+
 interface UmbToolEntry {
 	tool: UmbWebMcpTool;
 	signal: AbortSignal;
+	scope?: UmbWebMcpToolScope;
+	generation: number;
 }
 
 interface UmbModelContextRegistration {
@@ -78,17 +88,82 @@ function schemaOf(tool: UmbWebMcpTool) {
 class UmbWebMcpToolHub {
 	#stacks = new Map<string, Array<UmbToolEntry>>();
 	#modelContextRegistrations = new Map<string, UmbModelContextRegistration>();
+	#listeners = new Set<() => void>();
+	#generation = 0;
 
-	register(tools: Array<UmbWebMcpTool>, signal: AbortSignal) {
-		if (signal.aborted) return;
+	/** Increases with every registration, so a caller can tell which registrations came after a point in time. */
+	get generation() {
+		return this.#generation;
+	}
+
+	register(tools: Array<UmbWebMcpTool>, signal: AbortSignal, scope?: UmbWebMcpToolScope) {
+		if (signal.aborted || !tools.length) return;
+		const generation = ++this.#generation;
 		for (const tool of tools) {
-			const entry: UmbToolEntry = { tool, signal };
+			const entry: UmbToolEntry = { tool, signal, scope, generation };
 			const stack = this.#stacks.get(tool.name) ?? [];
 			stack.push(entry);
 			this.#stacks.set(tool.name, stack);
 			signal.addEventListener('abort', () => this.#remove(tool.name, entry), { once: true });
 			this.#syncWithModelContext(tool);
 		}
+		this.#notify();
+	}
+
+	/**
+	 * Calls `listener` whenever tools are registered or removed. Returns a function that unsubscribes.
+	 */
+	onChange(listener: () => void) {
+		this.#listeners.add(listener);
+		return () => {
+			this.#listeners.delete(listener);
+		};
+	}
+
+	/**
+	 * The names whose handling registration has the given scope, such as the tools of the open workspace.
+	 */
+	namesInScope(scope: UmbWebMcpToolScope) {
+		return [...this.#stacks.entries()]
+			.filter(([, stack]) => stack[stack.length - 1].scope === scope)
+			.map(([name]) => name)
+			.sort();
+	}
+
+	/**
+	 * Resolves with true once tools with `scope` have been registered after `sinceGeneration` and registrations have
+	 * then been quiet for `quietMs`, or with false after `maxMs`. Rejects with the signal's reason when `signal` aborts.
+	 */
+	async waitForScope(
+		scope: UmbWebMcpToolScope,
+		sinceGeneration: number,
+		{ signal, maxMs = 10_000, quietMs = 250 }: { signal?: AbortSignal; maxMs?: number; quietMs?: number } = {},
+	) {
+		const registered = () =>
+			[...this.#stacks.values()].some((stack) =>
+				stack.some((entry) => entry.scope === scope && entry.generation > sinceGeneration),
+			);
+		if (!registered()) {
+			const appeared = await new Promise<boolean>((resolve, reject) => {
+				const finish = (outcome: () => void) => {
+					clearTimeout(timer);
+					unsubscribe();
+					signal?.removeEventListener('abort', onAbort);
+					outcome();
+				};
+				const onAbort = () => finish(() => reject(signal!.reason));
+				const timer = setTimeout(() => finish(() => resolve(false)), maxMs);
+				const unsubscribe = this.onChange(() => {
+					if (registered()) finish(() => resolve(true));
+				});
+				signal?.addEventListener('abort', onAbort, { once: true });
+				if (signal?.aborted) onAbort();
+			});
+			if (!appeared) return false;
+		}
+		// A workspace registers its own tools, then its toolsets', so wait until they've all arrived
+		await waitForQuiet((onChange) => this.onChange(onChange), quietMs, maxMs, signal);
+		return true;
 	}
 
 	list() {
@@ -113,10 +188,15 @@ class UmbWebMcpToolHub {
 			this.#stacks.set(name, remaining);
 			// The registration that takes over may describe the tool differently
 			this.#syncWithModelContext(remaining[remaining.length - 1].tool);
-			return;
+		} else {
+			this.#stacks.delete(name);
+			this.#unregisterFromModelContext(name);
 		}
-		this.#stacks.delete(name);
-		this.#unregisterFromModelContext(name);
+		this.#notify();
+	}
+
+	#notify() {
+		for (const listener of [...this.#listeners]) listener();
 	}
 
 	/**
@@ -173,8 +253,8 @@ export const umbWebMcpToolHub = new UmbWebMcpToolHub();
 /**
  * Registers tools until `signal` aborts.
  */
-export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal) {
-	umbWebMcpToolHub.register(tools, signal);
+export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal, scope?: UmbWebMcpToolScope) {
+	umbWebMcpToolHub.register(tools, signal, scope);
 }
 
 /**
@@ -186,4 +266,20 @@ export function exposePageApi() {
 		list: () => umbWebMcpToolHub.list(),
 		call: (name: string, input?: object, call?: UmbWebMcpToolCall) => umbWebMcpToolHub.call(name, input, call),
 	};
+}
+
+const WORKSPACE_PATH = /\/workspace\//;
+
+/**
+ * Navigates to a backoffice path. When the path opens a workspace, waits until it has loaded and registered its
+ * tools, then returns their names, so an agent knows what it can call next without listing every tool again.
+ */
+export async function openPath(path: string, signal?: AbortSignal) {
+	const before = location.pathname;
+	const since = umbWebMcpToolHub.generation;
+	const result = navigate(path);
+	if (!WORKSPACE_PATH.test(result.navigatedTo)) return result;
+	const workspaceReady =
+		result.navigatedTo === before ? true : await umbWebMcpToolHub.waitForScope('workspace', since, { signal });
+	return { ...result, workspaceReady, workspaceTools: umbWebMcpToolHub.namesInScope('workspace') };
 }

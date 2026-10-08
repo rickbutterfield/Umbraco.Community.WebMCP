@@ -41,10 +41,11 @@ export async function runWithoutBlocking(work: () => Promise<unknown>, waitMs = 
 
 /**
  * Resolves after `onChange` has stayed quiet for `quietMs`, so asynchronous extension conditions have time to settle.
- * Changes after it settles are ignored. When `signal` aborts, it stops waiting and rejects with the signal's reason.
+ * Changes after it settles are ignored, and if `subscribe` returns a function, it is called to unsubscribe. When
+ * `signal` aborts, it stops waiting and rejects with the signal's reason.
  */
 export function waitForQuiet(
-	subscribe: (onChange: () => void) => void,
+	subscribe: (onChange: () => void) => (() => void) | void,
 	quietMs = 200,
 	maxMs = 3000,
 	signal?: AbortSignal,
@@ -57,12 +58,14 @@ export function waitForQuiet(
 
 		let settled = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
+		const subscription: { unsubscribe?: (() => void) | void } = {};
 		const settle = (outcome: () => void) => {
 			if (settled) return;
 			settled = true;
 			clearTimeout(timer);
 			clearTimeout(deadline);
 			signal?.removeEventListener('abort', onAbort);
+			subscription.unsubscribe?.();
 			outcome();
 		};
 		const onAbort = () => settle(() => reject(signal!.reason));
@@ -70,12 +73,38 @@ export function waitForQuiet(
 		timer = setTimeout(() => settle(resolve), quietMs);
 		const deadline = setTimeout(() => settle(resolve), maxMs);
 		signal?.addEventListener('abort', onAbort, { once: true });
-		subscribe(() => {
+		subscription.unsubscribe = subscribe(() => {
 			if (settled) return;
 			clearTimeout(timer);
 			timer = setTimeout(() => settle(resolve), quietMs);
 		});
+		// The subscription may have settled the wait already, before it could be unsubscribed
+		if (settled) subscription.unsubscribe?.();
 	});
+}
+
+/**
+ * Whether a workspace has finished loading: nothing is loading and, for workspaces that hold data, the data is there.
+ * Workspace contexts differ, so this only uses what they have.
+ */
+export function isWorkspaceReady(workspace: any) {
+	if (workspace?.loading?.getIsOn?.()) return false;
+	if (typeof workspace?.getData === 'function' && workspace.getData() === undefined) return false;
+	return true;
+}
+
+/**
+ * Resolves with true once the workspace has finished loading, or with false after `maxMs` if it hasn't. Before then,
+ * setting values on it can fail with "Data is missing". Rejects with the signal's reason when `signal` aborts.
+ */
+export async function whenWorkspaceReady(workspace: unknown, signal?: AbortSignal, maxMs = 10_000, pollMs = 50) {
+	const deadline = Date.now() + maxMs;
+	while (!isWorkspaceReady(workspace)) {
+		signal?.throwIfAborted();
+		if (Date.now() >= deadline) return false;
+		await new Promise((resolve) => setTimeout(resolve, pollMs));
+	}
+	return true;
 }
 
 /**
