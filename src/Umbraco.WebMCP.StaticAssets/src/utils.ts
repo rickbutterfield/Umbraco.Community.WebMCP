@@ -1,8 +1,13 @@
 /**
  * Starts `work` and returns once it finishes or `waitMs` passes, whichever comes first. Actions often open a modal and
  * only resolve when it closes, so an agent must get control back to drive the modal with the modal tools.
+ *
+ * When `signal` aborts (the caller cancelled the tool call), it stops waiting and rejects with the signal's reason. The
+ * work itself carries on, because an action that has started can't be called back; `signal` only ends the wait.
  */
-export async function runWithoutBlocking(work: () => Promise<unknown>, waitMs = 1500) {
+export async function runWithoutBlocking(work: () => Promise<unknown>, waitMs = 1500, signal?: AbortSignal) {
+	signal?.throwIfAborted();
+
 	let error: unknown;
 	let completed = false;
 	const promise = work().then(
@@ -12,27 +17,63 @@ export async function runWithoutBlocking(work: () => Promise<unknown>, waitMs = 
 			error = reason;
 		},
 	);
-	await Promise.race([promise, new Promise((resolve) => setTimeout(resolve, waitMs))]);
+
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	let onAbort: (() => void) | undefined;
+	try {
+		await Promise.race([
+			promise,
+			new Promise((resolve) => (timer = setTimeout(resolve, waitMs))),
+			new Promise((_resolve, reject) => {
+				if (!signal) return;
+				onAbort = () => reject(signal.reason);
+				signal.addEventListener('abort', onAbort, { once: true });
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
+		if (onAbort) signal?.removeEventListener('abort', onAbort);
+	}
+
 	if (error) throw error instanceof Error ? error : new Error(String(error));
 	return { completed, promise };
 }
 
 /**
  * Resolves after `onChange` has stayed quiet for `quietMs`, so asynchronous extension conditions have time to settle.
+ * Changes after it settles are ignored. When `signal` aborts, it stops waiting and rejects with the signal's reason.
  */
-export function waitForQuiet(subscribe: (onChange: () => void) => void, quietMs = 200, maxMs = 3000) {
-	return new Promise<void>((resolve) => {
-		let timer = setTimeout(resolve, quietMs);
-		const deadline = setTimeout(() => {
+export function waitForQuiet(
+	subscribe: (onChange: () => void) => void,
+	quietMs = 200,
+	maxMs = 3000,
+	signal?: AbortSignal,
+) {
+	return new Promise<void>((resolve, reject) => {
+		if (signal?.aborted) {
+			reject(signal.reason);
+			return;
+		}
+
+		let settled = false;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const settle = (outcome: () => void) => {
+			if (settled) return;
+			settled = true;
 			clearTimeout(timer);
-			resolve();
-		}, maxMs);
+			clearTimeout(deadline);
+			signal?.removeEventListener('abort', onAbort);
+			outcome();
+		};
+		const onAbort = () => settle(() => reject(signal!.reason));
+
+		timer = setTimeout(() => settle(resolve), quietMs);
+		const deadline = setTimeout(() => settle(resolve), maxMs);
+		signal?.addEventListener('abort', onAbort, { once: true });
 		subscribe(() => {
+			if (settled) return;
 			clearTimeout(timer);
-			timer = setTimeout(() => {
-				clearTimeout(deadline);
-				resolve();
-			}, quietMs);
+			timer = setTimeout(() => settle(resolve), quietMs);
 		});
 	});
 }

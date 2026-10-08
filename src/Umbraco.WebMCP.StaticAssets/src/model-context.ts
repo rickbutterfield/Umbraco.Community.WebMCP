@@ -5,18 +5,28 @@ export interface UmbWebMcpToolAnnotations {
 	debugging?: boolean;
 }
 
+/**
+ * What a tool is told about the call it's handling.
+ */
+export interface UmbWebMcpToolCall {
+	/** Aborts when the caller cancels the call. Stop waiting when it does. */
+	signal?: AbortSignal;
+}
+
 export interface UmbWebMcpTool<TInput = any> {
 	name: string;
 	title?: string;
 	description: string;
 	inputSchema?: object;
 	annotations?: UmbWebMcpToolAnnotations;
-	execute(input: TInput): Promise<unknown>;
+	execute(input: TInput, call?: UmbWebMcpToolCall): Promise<unknown>;
 }
 
 interface ModelContext {
 	registerTool(
-		tool: Omit<UmbWebMcpTool, 'execute'> & { execute(input: object): Promise<string> },
+		tool: Omit<UmbWebMcpTool, 'execute'> & {
+			execute(input: object, client?: { signal?: AbortSignal }): Promise<string>;
+		},
 		options?: { signal?: AbortSignal },
 	): Promise<void> | void;
 	// Early Chrome previews exposed this instead of honouring the abort signal.
@@ -88,10 +98,11 @@ class UmbWebMcpToolHub {
 		});
 	}
 
-	async call(name: string, input?: object) {
+	async call(name: string, input?: object, call: UmbWebMcpToolCall = {}) {
+		call.signal?.throwIfAborted();
 		const stack = this.#stacks.get(name);
 		if (!stack?.length) throw new Error(`No WebMCP tool named "${name}" is registered right now.`);
-		return (await stack[stack.length - 1].tool.execute(input ?? {})) ?? null;
+		return (await stack[stack.length - 1].tool.execute(input ?? {}, call)) ?? null;
 	}
 
 	#remove(name: string, entry: UmbToolEntry) {
@@ -134,7 +145,8 @@ class UmbWebMcpToolHub {
 					description: tool.description,
 					inputSchema: tool.inputSchema,
 					annotations: { debugging: true, ...tool.annotations },
-					execute: async (input) => JSON.stringify(await this.call(tool.name, input)),
+					execute: async (input, client) =>
+						JSON.stringify(await this.call(tool.name, input, { signal: client?.signal })),
 				},
 				{ signal: controller.signal },
 			);
@@ -172,6 +184,6 @@ export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal) 
 export function exposePageApi() {
 	(window as any).__umbWebMcp = {
 		list: () => umbWebMcpToolHub.list(),
-		call: (name: string, input?: object) => umbWebMcpToolHub.call(name, input),
+		call: (name: string, input?: object, call?: UmbWebMcpToolCall) => umbWebMcpToolHub.call(name, input, call),
 	};
 }

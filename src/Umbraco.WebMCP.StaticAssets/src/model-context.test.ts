@@ -15,7 +15,7 @@ interface FakeRegistration {
 	description: string;
 	inputSchema?: object;
 	signal?: AbortSignal;
-	execute(input: object): Promise<string>;
+	execute(input: object, client?: { signal?: AbortSignal }): Promise<string>;
 }
 
 const describedTool = (name: string, description: string, inputSchema?: object): UmbWebMcpTool => ({
@@ -74,6 +74,55 @@ describe('UmbWebMcpToolHub', () => {
 	});
 
 	describe('calling', () => {
+		const signalCatcher = (name: string) => {
+			const seen: { signal?: AbortSignal } = {};
+			const catcher: UmbWebMcpTool = {
+				name,
+				description: 'Records the signal it was called with',
+				execute: async (_input, call) => {
+					seen.signal = call?.signal;
+					return null;
+				},
+			};
+			return { catcher, seen };
+		};
+
+		it('passes the signal of the call to the tool', async () => {
+			const name = uniqueName();
+			const { catcher, seen } = signalCatcher(name);
+			registerTools([catcher], new AbortController().signal);
+			const controller = new AbortController();
+			await umbWebMcpToolHub.call(name, {}, { signal: controller.signal });
+
+			expect(seen.signal).to.equal(controller.signal);
+		});
+
+		it('passes the signal through the page API', async () => {
+			const name = uniqueName();
+			const { catcher, seen } = signalCatcher(name);
+			registerTools([catcher], new AbortController().signal);
+			exposePageApi();
+			const controller = new AbortController();
+			await (window as any).__umbWebMcp.call(name, {}, { signal: controller.signal });
+
+			expect(seen.signal).to.equal(controller.signal);
+		});
+
+		it('does not call the tool when the signal has already aborted', async () => {
+			const name = uniqueName();
+			const { catcher, seen } = signalCatcher(name);
+			registerTools([catcher], new AbortController().signal);
+			const controller = new AbortController();
+			controller.abort();
+			try {
+				await umbWebMcpToolHub.call(name, {}, { signal: controller.signal });
+			} catch {
+				// Expected: the call is cancelled before it starts
+			}
+
+			expect(seen.signal).to.equal(undefined);
+		});
+
 		it('returns the tool result', async () => {
 			const name = uniqueName();
 			registerTools([tool(name, 'first')], new AbortController().signal);
@@ -244,6 +293,25 @@ describe('UmbWebMcpToolHub', () => {
 
 			const registration = fake.registrations.find((x) => x.name === name)!;
 			expect(await registration.execute({})).to.equal('{"ok":true}');
+		});
+
+		it('passes the signal WebMCP calls with to the tool', async () => {
+			const name = uniqueName();
+			let seen: AbortSignal | undefined;
+			registerTools(
+				[
+					{
+						name,
+						description: 'Records the signal it was called with',
+						execute: async (_input, call) => (seen = call?.signal) && null,
+					},
+				],
+				new AbortController().signal,
+			);
+			const controller = new AbortController();
+			await fake.registrations.find((x) => x.name === name)!.execute({}, { signal: controller.signal });
+
+			expect(seen).to.equal(controller.signal);
 		});
 	});
 
