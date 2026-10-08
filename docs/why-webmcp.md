@@ -1,6 +1,6 @@
 # Why WebMCP, beyond testing
 
-*Last checked: 07-10-2026. The WebMCP maturity facts and the Umbraco.AI details change quickly; recheck them before relying on this page.*
+*Last checked: 08-10-2026. The WebMCP maturity facts and the Umbraco.AI details change quickly; recheck them before relying on this page.*
 
 WebMCP lets an agent work inside the page someone already has open: as that person, on what they're looking at, with
 every change visible before it's saved. [Umbraco MCP, WebMCP and Playwright](testing-layers.md) covers testing; this
@@ -8,8 +8,10 @@ page covers everything else.
 
 ## What WebMCP gives any website
 
-- **Reliability and cost.** The agent calls named, typed actions instead of reading screenshots or the accessibility
-  tree and guessing where to click. It's faster, uses fewer tokens and makes fewer mistakes.
+- **Fewer steps.** The agent calls named, typed actions instead of reading screenshots or the accessibility tree and
+  guessing where to click. In this repo's benchmark that meant about 20% fewer turns and 10% lower cost on short
+  content tasks, at the same speed, with the gap growing on longer paths ([benchmarks/RESULTS.md](../benchmarks/RESULTS.md)).
+  It isn't a big win on simple flows; expect more on long or fragile ones, which haven't been measured yet.
 - **No new login to set up.** Tools run in the user's existing session with their existing permissions. There's no
   API key, OAuth app or separate MCP server to run.
 - **The site decides what agents can do.** The site lists the actions it allows and marks the risky ones
