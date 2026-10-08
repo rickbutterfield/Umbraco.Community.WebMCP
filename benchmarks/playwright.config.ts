@@ -31,6 +31,19 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'], ignoreHTTPSErrors: true, storageState: STORAGE_STATE },
 		},
 		{
+			// Drives the tools through Chrome's real WebMCP; needs Google Chrome 149 or later installed
+			name: 'webmcp',
+			testMatch: 'webmcp/**/*.spec.ts',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				channel: 'chrome',
+				launchOptions: { args: ['--enable-features=WebMCP,WebMCPTesting'] },
+				ignoreHTTPSErrors: true,
+				storageState: STORAGE_STATE,
+			},
+		},
+		{
 			// Checks the server serves only the enabled surfaces; see tests/surfaces/surfaces.spec.ts
 			name: 'surfaces',
 			testMatch: 'surfaces/**/*.spec.ts',
