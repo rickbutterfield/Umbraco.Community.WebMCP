@@ -33,9 +33,10 @@ const describedTool = (name: string, description: string, inputSchema?: object):
 });
 
 /**
- * Installs a fake `document.modelContext` for the duration of a test.
+ * Installs a fake `document.modelContext` for the duration of a test and, unless `attach` is false, attaches the hub to
+ * it as the WebMCP surface does.
  */
-function installFakeModelContext() {
+function installFakeModelContext({ attach = true } = {}) {
 	const registrations: Array<FakeRegistration> = [];
 	Object.defineProperty(document, 'modelContext', {
 		configurable: true,
@@ -45,10 +46,16 @@ function installFakeModelContext() {
 			},
 		},
 	});
+	let detach = attach ? umbWebMcpToolHub.attachModelContext() : undefined;
 	return {
 		registrations,
 		active: () => registrations.filter((x) => !x.signal?.aborted),
-		uninstall: () => delete (document as any).modelContext,
+		attach: () => (detach = umbWebMcpToolHub.attachModelContext()),
+		detach: () => detach?.(),
+		uninstall: () => {
+			detach?.();
+			delete (document as any).modelContext;
+		},
 	};
 }
 
@@ -273,6 +280,32 @@ describe('UmbWebMcpToolHub', () => {
 			expect(listed().description).to.equal('Newer description');
 			newer.abort();
 			expect(listed().description).to.equal('Older description');
+		});
+	});
+
+	describe('the WebMCP surface', () => {
+		it('does not register with WebMCP until the surface attaches', () => {
+			const fake = installFakeModelContext({ attach: false });
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal);
+			const before = fake.active().filter((x) => x.name === name).length;
+			fake.attach();
+			const after = fake.active().filter((x) => x.name === name).length;
+			fake.uninstall();
+
+			expect([before, after]).to.deep.equal([0, 1]);
+		});
+
+		it('unregisters every tool when the surface detaches', () => {
+			const fake = installFakeModelContext();
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal);
+			fake.detach();
+			registerTools([tool(uniqueName(), 2)], new AbortController().signal);
+			const active = fake.active().length;
+			fake.uninstall();
+
+			expect(active).to.equal(0);
 		});
 	});
 

@@ -7,7 +7,8 @@ using Umbraco.Cms.Infrastructure.Manifest;
 namespace Umbraco.WebMCP;
 
 /// <summary>
-/// Supplies the backoffice entry point only when WebMCP is enabled, so the tools never load in environments that didn't opt in.
+/// Supplies the backoffice entry points: the tools, plus one entry point per enabled surface (WebMCP and the page API).
+/// When no surface is enabled, nothing is supplied, so the tools never load in environments that didn't opt in.
 /// </summary>
 internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
 {
@@ -22,8 +23,22 @@ internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
 
     public Task<IEnumerable<PackageManifest>> ReadPackageManifestsAsync()
     {
-        var enabled = _options.Value.Enabled ?? _hostEnvironment.IsDevelopment();
-        if (enabled is false)
+        WebMcpOptions options = _options.Value;
+        var defaultEnabled = options.Enabled ?? _hostEnvironment.IsDevelopment();
+
+        // Each surface is its own entry point, so a surface that isn't enabled is never loaded in the browser.
+        List<object> surfaces = [];
+        if (options.ModelContext ?? defaultEnabled)
+        {
+            surfaces.Add(EntryPoint("ModelContext", "WebMCP Model Context Entry Point", "umbraco-webmcp-model-context.js"));
+        }
+
+        if (options.PageApi ?? defaultEnabled)
+        {
+            surfaces.Add(EntryPoint("PageApi", "WebMCP Page API Entry Point", "umbraco-webmcp-page-api.js"));
+        }
+
+        if (surfaces.Count == 0)
         {
             return Task.FromResult(Enumerable.Empty<PackageManifest>());
         }
@@ -36,18 +51,18 @@ internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
             // umbraco-package.json version does in the Umbraco DXP products.
             Version = typeof(WebMcpPackageManifestReader).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
             AllowTelemetry = false,
-            Extensions =
-            [
-                new
-                {
-                    type = "backofficeEntryPoint",
-                    alias = $"{Constants.PackageId}.EntryPoint",
-                    name = "WebMCP Entry Point",
-                    js = $"/App_Plugins/{Constants.PackageId}/umbraco-webmcp.js",
-                },
-            ],
+            // The tools themselves first, then the surfaces that make them reachable.
+            Extensions = [EntryPoint("EntryPoint", "WebMCP Entry Point", "umbraco-webmcp.js"), .. surfaces],
         };
 
         return Task.FromResult<IEnumerable<PackageManifest>>([manifest]);
     }
+
+    private static object EntryPoint(string aliasSuffix, string name, string fileName) => new
+    {
+        type = "backofficeEntryPoint",
+        alias = $"{Constants.PackageId}.{aliasSuffix}",
+        name,
+        js = $"/App_Plugins/{Constants.PackageId}/{fileName}",
+    };
 }

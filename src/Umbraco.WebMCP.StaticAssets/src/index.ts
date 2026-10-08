@@ -1,6 +1,6 @@
 import './extension-types.ts';
 import type { UmbWebMcpToolsetApi } from './extension-types.ts';
-import { exposePageApi, getModelContext, registerTools } from './model-context.ts';
+import { registerTools } from './model-context.ts';
 import { UmbWebMcpNotificationWatcher } from './notification-watcher.ts';
 import { createEntityActionTools } from './tools/entity-action.tools.ts';
 import { createModalTools } from './tools/modal.tools.ts';
@@ -15,14 +15,9 @@ export type { UmbWebMcpTool, UmbWebMcpToolAnnotations } from './model-context.ts
 const abortController = new AbortController();
 let toolsetAbortController: AbortController | undefined;
 
+// The tools themselves. They only become reachable through a surface, each its own entry point that the server serves
+// only when that surface is enabled: surfaces/model-context.entry.ts (WebMCP) and surfaces/page-api.entry.ts.
 export const onInit: UmbEntryPointOnInit = (host, extensionRegistry) => {
-	if (!getModelContext()) {
-		console.info(
-			'[WebMCP] document.modelContext is not available, so tools are only reachable through window.__umbWebMcp. Enable chrome://flags/#enable-webmcp-testing for WebMCP.',
-		);
-	}
-
-	exposePageApi();
 	new UmbWebMcpNotificationWatcher(host);
 	registerTools(
 		[...createNavigationTools(host), ...createEntityActionTools(host), ...createModalTools(host)],
@@ -43,5 +38,4 @@ export const onInit: UmbEntryPointOnInit = (host, extensionRegistry) => {
 export const onUnload: UmbEntryPointOnUnload = () => {
 	abortController.abort();
 	toolsetAbortController?.abort();
-	delete (window as any).__umbWebMcp;
 };

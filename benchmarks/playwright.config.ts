@@ -31,6 +31,13 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'], ignoreHTTPSErrors: true, storageState: STORAGE_STATE },
 		},
 		{
+			// Checks the server serves only the enabled surfaces; see tests/surfaces/surfaces.spec.ts
+			name: 'surfaces',
+			testMatch: 'surfaces/**/*.spec.ts',
+			dependencies: ['setup'],
+			use: { ...devices['Desktop Chrome'], ignoreHTTPSErrors: true, storageState: STORAGE_STATE },
+		},
+		{
 			// Arranges, verifies and cleans up for agent/run.mjs; not a benchmark itself
 			name: 'agent-fixture',
 			testMatch: 'agent/**/*.spec.ts',

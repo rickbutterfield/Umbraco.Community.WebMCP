@@ -90,17 +90,18 @@ function schemaOf(tool: UmbWebMcpTool) {
 }
 
 /**
- * Holds every registered tool and exposes each name once, to WebMCP when the browser supports it and to the
- * page API (`window.__umbWebMcp`). When two registrations share a name (for example a document open in a modal on top of
- * another document), the newest one handles calls until it is aborted, then the previous one takes over. WebMCP keeps
- * the description and input schema it was registered with, so when the handling registration's schema differs, the
- * name is registered again with the current one.
+ * Holds every registered tool and exposes each name once, to WebMCP when its surface is attached and the browser
+ * supports it, and to the page API (`window.__umbWebMcp`) when that surface is enabled. When two registrations share a
+ * name (for example a document open in a modal on top of another document), the newest one handles calls until it is
+ * aborted, then the previous one takes over. WebMCP keeps the description and input schema it was registered with, so
+ * when the handling registration's schema differs, the name is registered again with the current one.
  */
 class UmbWebMcpToolHub {
 	#stacks = new Map<string, Array<UmbToolEntry>>();
 	#modelContextRegistrations = new Map<string, UmbModelContextRegistration>();
 	#listeners = new Set<() => void>();
 	#generation = 0;
+	#modelContextAttached = false;
 
 	/** Increases with every registration, so a caller can tell which registrations came after a point in time. */
 	get generation() {
@@ -229,10 +230,25 @@ class UmbWebMcpToolHub {
 	}
 
 	/**
+	 * Starts registering every tool, now and later, with WebMCP (`document.modelContext`), when the browser supports it.
+	 * The WebMCP surface calls this only when it is enabled; until then, tools are only reachable through the other
+	 * surfaces. Returns a function that unregisters them all again.
+	 */
+	attachModelContext() {
+		this.#modelContextAttached = true;
+		for (const stack of this.#stacks.values()) this.#syncWithModelContext(stack[stack.length - 1].tool);
+		return () => {
+			this.#modelContextAttached = false;
+			for (const name of [...this.#modelContextRegistrations.keys()]) this.#unregisterFromModelContext(name);
+		};
+	}
+
+	/**
 	 * Makes WebMCP describe `tool` (the registration now handling its name): registers it if the name is new, and
 	 * registers it again if WebMCP holds a different description or input schema for the name.
 	 */
 	#syncWithModelContext(tool: UmbWebMcpTool) {
+		if (!this.#modelContextAttached) return;
 		const schema = schemaOf(tool);
 		const current = this.#modelContextRegistrations.get(tool.name);
 		if (current?.schema === schema) return;
@@ -288,7 +304,7 @@ export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal, 
 
 /**
  * Exposes the same tools to page scripts, so Playwright (`page.evaluate`, Playwright MCP's `browser_evaluate`) and
- * browsers without WebMCP can call them. Only loaded when the package is enabled.
+ * browsers without WebMCP can call them. Only called when the page API surface is enabled.
  *
  * `list()` is kept short, because agents read it whole: each tool's name, one-sentence summary and annotations.
  * `describe(name)` returns a tool's full description and input schema, and `list({ full: true })` returns them all.
