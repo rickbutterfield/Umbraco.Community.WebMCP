@@ -438,6 +438,22 @@ describe('UmbWebMcpToolHub', () => {
 			expect(await openPath('/umbraco/section/settings')).to.deep.equal({ navigatedTo: '/umbraco/section/settings' });
 		});
 
+		it('returns straight away when the open workspace already shows the entity', async () => {
+			const info = {
+				name: 'umbraco_get_workspace_info',
+				description: 'Returns the open workspace.',
+				execute: async () => ({ unique: 'same-key', ready: true }),
+			};
+			const controller = new AbortController();
+			registerTools([info], controller.signal, 'workspace');
+			const start = Date.now();
+			const result: any = await openPath('/umbraco/section/content/workspace/document/edit/same-key');
+			controller.abort();
+
+			expect(result.workspaceReady).to.equal(true);
+			expect(Date.now() - start).to.be.lessThan(1000);
+		});
+
 		it('waits for the workspace and returns its tools', async () => {
 			const name = uniqueName();
 			setTimeout(() => registerTools([tool(name, 1)], new AbortController().signal, 'workspace'), 20);

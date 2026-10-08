@@ -144,34 +144,56 @@ class UmbWebMcpToolHub {
 
 	/**
 	 * Resolves with true once tools with `scope` have been registered after `sinceGeneration` and registrations have
-	 * then been quiet for `quietMs`, or with false after `maxMs`. Rejects with the signal's reason when `signal` aborts.
+	 * then been quiet for `quietMs`, or as soon as `alreadyDone` (checked every 100 ms) returns true, or with false
+	 * after `maxMs`. Rejects with the signal's reason when `signal` aborts.
+	 *
+	 * `alreadyDone` covers navigating within an open workspace: the backoffice reuses the workspace for another entity
+	 * of the same type, so no new tools are registered.
 	 */
 	async waitForScope(
 		scope: UmbWebMcpToolScope,
 		sinceGeneration: number,
-		{ signal, maxMs = 10_000, quietMs = 250 }: { signal?: AbortSignal; maxMs?: number; quietMs?: number } = {},
+		{
+			signal,
+			maxMs = 10_000,
+			quietMs = 250,
+			alreadyDone,
+		}: {
+			signal?: AbortSignal;
+			maxMs?: number;
+			quietMs?: number;
+			alreadyDone?: () => boolean | Promise<boolean>;
+		} = {},
 	) {
 		const registered = () =>
 			[...this.#stacks.values()].some((stack) =>
 				stack.some((entry) => entry.scope === scope && entry.generation > sinceGeneration),
 			);
 		if (!registered()) {
-			const appeared = await new Promise<boolean>((resolve, reject) => {
-				const finish = (outcome: () => void) => {
+			const outcome = await new Promise<'registered' | 'done' | 'timeout'>((resolve, reject) => {
+				let finished = false;
+				const finish = (result: () => void) => {
+					if (finished) return;
+					finished = true;
 					clearTimeout(timer);
+					clearInterval(poll);
 					unsubscribe();
 					signal?.removeEventListener('abort', onAbort);
-					outcome();
+					result();
 				};
 				const onAbort = () => finish(() => reject(signal!.reason));
-				const timer = setTimeout(() => finish(() => resolve(false)), maxMs);
+				const timer = setTimeout(() => finish(() => resolve('timeout')), maxMs);
+				const poll = setInterval(async () => {
+					if (alreadyDone && (await alreadyDone())) finish(() => resolve('done'));
+				}, 100);
 				const unsubscribe = this.onChange(() => {
-					if (registered()) finish(() => resolve(true));
+					if (registered()) finish(() => resolve('registered'));
 				});
 				signal?.addEventListener('abort', onAbort, { once: true });
 				if (signal?.aborted) onAbort();
 			});
-			if (!appeared) return false;
+			if (outcome === 'timeout') return false;
+			if (outcome === 'done') return true;
 		}
 		// A workspace registers its own tools, then its toolsets', so wait until they've all arrived
 		await waitForQuiet((onChange) => this.onChange(onChange), quietMs, maxMs, signal);
@@ -319,17 +341,33 @@ export function exposePageApi() {
 }
 
 const WORKSPACE_PATH = /\/workspace\//;
+const EDIT_WORKSPACE_PATH = /\/workspace\/[^/]+\/edit\/([^/?#]+)/;
+
+/**
+ * Whether the open workspace already shows the entity with this key and has loaded it, according to
+ * umbraco_get_workspace_info.
+ */
+async function isOpenAndReady(unique: string) {
+	if (!umbWebMcpToolHub.namesInScope('workspace').includes('umbraco_get_workspace_info')) return false;
+	const info = (await umbWebMcpToolHub.call('umbraco_get_workspace_info').catch(() => null)) as {
+		unique?: string | null;
+		ready?: boolean;
+	} | null;
+	return info?.unique === unique && info.ready === true;
+}
 
 /**
  * Navigates to a backoffice path. When the path opens a workspace, waits until it has loaded and registered its
  * tools, then returns their names, so an agent knows what it can call next without listing every tool again.
  */
 export async function openPath(path: string, signal?: AbortSignal) {
-	const before = location.pathname;
 	const since = umbWebMcpToolHub.generation;
 	const result = navigate(path);
 	if (!WORKSPACE_PATH.test(result.navigatedTo)) return result;
-	const workspaceReady =
-		result.navigatedTo === before ? true : await umbWebMcpToolHub.waitForScope('workspace', since, { signal });
+	const unique = result.navigatedTo.match(EDIT_WORKSPACE_PATH)?.[1];
+	const workspaceReady = await umbWebMcpToolHub.waitForScope('workspace', since, {
+		signal,
+		alreadyDone: unique ? () => isOpenAndReady(unique) : undefined,
+	});
 	return { ...result, workspaceReady, workspaceTools: umbWebMcpToolHub.namesInScope('workspace') };
 }

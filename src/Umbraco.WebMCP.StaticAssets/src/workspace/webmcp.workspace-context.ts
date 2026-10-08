@@ -1,7 +1,7 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import { registerTools, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
 import { startOutcome } from '../outcome.ts';
-import { runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
+import { isWorkspaceReady, runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbExtensionsApiInitializer } from '@umbraco-cms/backoffice/extension-api';
@@ -69,6 +69,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 			unique: workspace.getUnique?.() ?? null,
 			isNew: workspace.getIsNew?.() ?? null,
 			hasUnsavedChanges: workspace.getHasUnpersistedChanges?.() ?? null,
+			ready: isWorkspaceReady(workspace),
 		};
 	}
 
@@ -78,7 +79,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 				name: 'umbraco_get_workspace_info',
 				title: 'Get open workspace',
 				description:
-					'Returns the workspace that is open: its alias, entity type and key, whether it is new and whether it has unsaved changes. When a workspace is open in a modal, this describes the modal one.',
+					'Returns the workspace that is open: its alias, entity type and key, whether it is new, whether it has unsaved changes and whether it has finished loading. When a workspace is open in a modal, this describes the modal one.',
 				annotations: { readOnlyHint: true },
 				execute: async () => this.#getInfo(),
 			},
