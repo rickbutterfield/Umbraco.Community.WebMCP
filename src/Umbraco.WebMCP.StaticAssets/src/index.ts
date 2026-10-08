@@ -1,6 +1,7 @@
 import './extension-types.ts';
 import type { UmbWebMcpToolsetApi } from './extension-types.ts';
 import { exposePageApi, getModelContext, registerTools } from './model-context.ts';
+import { UmbWebMcpNotificationWatcher } from './notification-watcher.ts';
 import { createEntityActionTools } from './tools/entity-action.tools.ts';
 import { createModalTools } from './tools/modal.tools.ts';
 import { createNavigationTools } from './tools/navigation.tools.ts';
@@ -22,6 +23,7 @@ export const onInit: UmbEntryPointOnInit = (host, extensionRegistry) => {
 	}
 
 	exposePageApi();
+	new UmbWebMcpNotificationWatcher(host);
 	registerTools(
 		[...createNavigationTools(host), ...createEntityActionTools(host), ...createModalTools(host)],
 		abortController.signal,

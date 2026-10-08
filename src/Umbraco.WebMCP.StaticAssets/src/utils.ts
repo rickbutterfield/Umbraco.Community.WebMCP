@@ -97,9 +97,17 @@ export function isWorkspaceReady(workspace: any) {
  * Resolves with true once the workspace has finished loading, or with false after `maxMs` if it hasn't. Before then,
  * setting values on it can fail with "Data is missing". Rejects with the signal's reason when `signal` aborts.
  */
-export async function whenWorkspaceReady(workspace: unknown, signal?: AbortSignal, maxMs = 10_000, pollMs = 50) {
+export function whenWorkspaceReady(workspace: unknown, signal?: AbortSignal, maxMs = 10_000, pollMs = 50) {
+	return waitUntil(() => isWorkspaceReady(workspace), signal, maxMs, pollMs);
+}
+
+/**
+ * Resolves with true once `condition` holds, checking every `pollMs`, or with false after `maxMs` if it doesn't.
+ * Rejects with the signal's reason when `signal` aborts.
+ */
+export async function waitUntil(condition: () => boolean, signal?: AbortSignal, maxMs = 2000, pollMs = 50) {
 	const deadline = Date.now() + maxMs;
-	while (!isWorkspaceReady(workspace)) {
+	while (!condition()) {
 		signal?.throwIfAborted();
 		if (Date.now() >= deadline) return false;
 		await new Promise((resolve) => setTimeout(resolve, pollMs));

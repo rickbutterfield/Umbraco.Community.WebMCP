@@ -1,5 +1,6 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import type { UmbWebMcpTool, UmbWebMcpToolCall } from '../model-context.ts';
+import { startOutcome } from '../outcome.ts';
 import { runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
@@ -129,28 +130,30 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				name: 'umbraco_save_document',
 				title: 'Save document',
 				description:
-					'Saves the open document, as the Save button does. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
+					'Saves the open document, as the Save button does, and returns the notifications it showed, such as a validation error. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
 				annotations: { consequentialHint: true, untrustedContentHint: true },
 				execute: async (_input: object, call?: UmbWebMcpToolCall) => {
+					const outcome = startOutcome();
 					const { completed } = await runWithoutBlocking(
 						() => this.#getWorkspace().requestSave(),
 						undefined,
 						call?.signal,
 					);
-					return { completed, state: await this.#getState() };
+					return { completed, ...(await outcome.report()), state: await this.#getState() };
 				},
 			},
 			{
 				name: 'umbraco_save_and_publish_document',
 				title: 'Save and publish document',
 				description:
-					'Saves and publishes the open document, as the Save and publish button does. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
+					'Saves and publishes the open document, as the Save and publish button does, and returns the notifications it showed. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
 				annotations: { consequentialHint: true, untrustedContentHint: true },
 				execute: async (_input: object, call?: UmbWebMcpToolCall) => {
 					if (!this.#publishing) throw new Error('Publishing is not available for this document.');
 					const publishing = this.#publishing;
+					const outcome = startOutcome();
 					const { completed } = await runWithoutBlocking(() => publishing.saveAndPublish(), undefined, call?.signal);
-					return { completed, state: await this.#getState() };
+					return { completed, ...(await outcome.report()), state: await this.#getState() };
 				},
 			},
 		];

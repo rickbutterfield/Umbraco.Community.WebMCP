@@ -1,5 +1,6 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import { registerTools, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
+import { startOutcome } from '../outcome.ts';
 import { runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
@@ -96,7 +97,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 				name: 'umbraco_run_workspace_action',
 				title: 'Run workspace action',
 				description:
-					'Runs a workspace footer action, as clicking its button does. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
+					'Runs a workspace footer action, as clicking its button does, and returns the notifications it showed, such as a validation error. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
 				annotations: { consequentialHint: true },
 				inputSchema: {
 					type: 'object',
@@ -109,8 +110,9 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 						throw new Error(
 							`Action "${alias}" is not available in this workspace. Use umbraco_list_workspace_actions.`,
 						);
+					const outcome = startOutcome();
 					const { completed } = await runWithoutBlocking(() => action.execute(), undefined, call?.signal);
-					return { completed, workspace: this.#getInfo() };
+					return { completed, ...(await outcome.report()), workspace: this.#getInfo() };
 				},
 			},
 		];

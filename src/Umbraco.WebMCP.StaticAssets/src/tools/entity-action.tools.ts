@@ -4,6 +4,7 @@ import {
 	type UmbWebMcpToolAnnotations,
 	type UmbWebMcpToolCall,
 } from '../model-context.ts';
+import { startOutcome } from '../outcome.ts';
 import { runWithoutBlocking, waitForQuiet } from '../utils.ts';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbEntityContext } from '@umbraco-cms/backoffice/entity';
@@ -141,6 +142,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 						return { completed: true, ...(await openPath(href, call?.signal)) };
 					}
 
+					const outcome = startOutcome();
 					let work: Promise<unknown>;
 					try {
 						call?.signal?.throwIfAborted();
@@ -153,7 +155,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 					// stops waiting first.
 					work.then(dispose, dispose);
 					const { completed } = await runWithoutBlocking(() => work, undefined, call?.signal);
-					return { completed };
+					return { completed, ...(await outcome.report()) };
 				},
 			},
 		];
@@ -169,7 +171,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 					'Lists the actions the current user can run on an entity, as in its "..." menu in the tree: create, delete, move, rename and any actions added by packages. For a tree root, use the root entity from umbraco_get_tree_items.',
 				runTitle: 'Run an entity action',
 				runDescription:
-					'Runs an entity action, as clicking it in the "..." menu does. Most actions open a modal: this returns while it is open, with completed false, so use umbraco_list_modals and the other modal tools to finish it. To create something, prefer umbraco_run_create_option.',
+					'Runs an entity action, as clicking it in the "..." menu does. Returns the notifications it showed and where it navigated. Most actions open a modal: this returns while it is open, with completed false, so use umbraco_list_modals and the other modal tools to finish it. To create something, prefer umbraco_run_create_option.',
 			},
 			// Some actions, such as Reload, change nothing, but Delete, Trash and Move do, so every call is treated as
 			// consequential.
