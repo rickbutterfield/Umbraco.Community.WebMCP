@@ -12,7 +12,7 @@
   "devDependencies": {
     "@playwright/test": "1.56.1",
     "@types/node": "^20.19.43",
-    "@umbraco-cms/acceptance-test-helpers": "18.1.1",
+    "@umbraco-cms/acceptance-test-helpers": "18.2.1",
     "dotenv": "^16.3.1"
   }
 }
