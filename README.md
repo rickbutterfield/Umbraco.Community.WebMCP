@@ -9,6 +9,22 @@ tools are available on WebMCP (`document.modelContext`) for in-browser agents, a
 The tools are for **arranging and inspecting** backoffice state. They don't replace UI testing, because a tool call
 skips the buttons, modals and routing a user would go through.
 
+## Benchmarks
+
+Measured on 08-10-2026 on one machine; see [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test
+numbers and caveats.
+
+| What | Variant | Pass rate | Result |
+|---|---|---|---|
+| Five CMS content acceptance tests, 10 runs each, median time of the step under test | Clicks, as in the CMS tests | 50/50 | 3.94 s |
+| | Page API navigates, clicks for the step under test | 50/50 | 3.65 s (−7%) |
+| | Everything through the page API (no longer tests the UI) | 49/50 | 2.86 s (−28%) |
+| Four content tasks given to an agent (Claude Sonnet, Playwright MCP), 5 runs each | Clicking only | 20/20 | 10 turns, 26 s, $0.055 |
+| | Told about the page API | 20/20 | 8 turns, 31 s, $0.063 |
+
+The page API made scripted tests faster and steadier. Agents took fewer turns with it on long UI paths, but listing
+every tool's schema made each task slightly slower and more expensive overall.
+
 ## Documentation
 
 - [Tools](docs/tools.md): what each tool does, and how to call it.
