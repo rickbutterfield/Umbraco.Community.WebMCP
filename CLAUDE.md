@@ -63,9 +63,11 @@ Open https://localhost:44311/umbraco. The backoffice refuses login over HTTP.
 
 ## Conventions
 
-- **The manifest is served from C#, not `umbraco-package.json`.** `WebMcpPackageManifestReader` only returns the
-  backoffice entry point when `Umbraco:WebMCP:Enabled` is true, or when it is unset and the environment is
-  Development. This keeps the tools out of production; don't replace it with a static manifest. The manifest's
+- **The manifest is served from C#, not `umbraco-package.json`.** `WebMcpPackageManifestReader` returns the tools'
+  entry point plus one entry point per enabled surface: `Umbraco:WebMCP:ModelContext` (WebMCP) and
+  `Umbraco:WebMCP:PageApi` (the page API), each defaulting to `Umbraco:WebMCP:Enabled`, which defaults to Development
+  only. With no surface enabled it returns nothing. A new surface, such as the Copilot bridge, gets its own entry point
+  and setting; don't replace this with a static manifest. The manifest's
   `Version` comes from the assembly's informational version, which the CMS uses for cache busting.
 - **Tools run the backoffice's own code, as the logged-in user.** Prefer clicking a modal's real buttons
   (`umbraco_click_modal_button`) over submitting through its context: many modals do their work in the button handler.

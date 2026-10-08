@@ -67,6 +67,11 @@ caller cancels; see the guidelines.
   permissions and do the same work as a click.
 - **Don't block on modals.** If a tool opens a modal, return before it closes, so the agent can drive it with the
   modal tools.
+- **Workspace toolsets don't need to wait for the workspace.** Their tools are registered only once the workspace
+  has loaded, and the tools that open a workspace report them to the agent as `workspaceTools`. If an action can make
+  the workspace reload, check it has data again before setting values, or the backoffice fails with "Data is missing".
+- **Say what happened.** Return what the action changed, such as the saved state or where it navigated, so the agent
+  doesn't need another call or a screenshot to check.
 - **Mark output containing editor-written content `untrustedContentHint`.** Anything an editor typed (names,
   property values, a modal's value) may contain text written to manipulate an agent. That includes tools that change
   data and return the result, such as a save that returns the saved values. Output made only of aliases, keys, flags

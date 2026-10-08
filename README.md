@@ -37,11 +37,19 @@ every tool's schema made each task slightly slower and more expensive overall.
 
 ## Enabling
 
-By default the entry point is only served in the `Development` environment. You can override that with:
+The tools are reachable through two surfaces, WebMCP and the page API. Each is a separate backoffice entry point
+with its own setting, and by default both are only served in the `Development` environment:
 
 ```json
-{ "Umbraco": { "WebMCP": { "Enabled": true } } }
+{ "Umbraco": { "WebMCP": { "Enabled": true, "ModelContext": true, "PageApi": false } } }
 ```
+
+- `Enabled` is the default for every surface.
+- `ModelContext` registers the tools with WebMCP (`document.modelContext`).
+- `PageApi` exposes `window.__umbWebMcp` to page scripts.
+
+When no surface is enabled, nothing is loaded. `benchmarks/tests/surfaces` checks which entry points a running site
+serves.
 
 Chrome needs WebMCP switched on: Chrome 149+ with `chrome://flags/#enable-webmcp-testing`, or launched with
 `--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport`. The page API works without it.

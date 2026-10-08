@@ -78,7 +78,7 @@ mislabelled.
 - **The markup doesn't change.** The only exception is a hidden `<umb-webmcp-entity-host>` element inside
   `umb-backoffice` while an entity action runs.
 - **The tools live in JavaScript:** `document.modelContext`, which Chrome 149+ shows in DevTools under Application →
-  WebMCP, and `window.__umbWebMcp.list()`.
+  WebMCP, and `window.__umbWebMcp.list()` (with `describe(name)` for one tool's input schema).
 - **Annotations are hints to the agent,** not restrictions.
 - **WebMCP's declarative API is different:** it adds `toolname` attributes to HTML forms and does change markup. It
   suits front-end forms, not the backoffice.

@@ -38,8 +38,8 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 
 	/**
 	 * After a modal has been clicked, submitted or closed: waits for it to close and for the notifications the work
-	 * it started shows, then reports them. A modal that stays open (a validation error, or a
-	 * second step) is reported with closed false, and the agent carries on with umbraco_list_modals.
+	 * it started shows, then reports them. A modal that stays open (a validation error, or a second step) is reported
+	 * with closed false, and the agent carries on with umbraco_list_modals.
 	 */
 	async function reportAfter(key: string, outcome: ReturnType<typeof startOutcome>, signal?: AbortSignal) {
 		const closed = await waitUntil(() => !watcher.isOpen(key), signal, 2000);

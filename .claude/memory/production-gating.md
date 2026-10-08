@@ -8,4 +8,10 @@ The package was dev-only: `WebMcpPackageManifestReader` only serves the backoffi
 
 **Why:** Rick chose editors in production as the bridge's audience. In production the safety boundary is the Copilot's agent tool permissions plus the editor's user permissions, with chat approval on every tool that changes data. Exposing the same tools to any in-page script or browser agent in production is a separate decision nobody has made.
 
+**Done 08-10-2026:** the client builds one entry point per surface (`umbraco-webmcp.js` for the tools,
+`umbraco-webmcp-model-context.js`, `umbraco-webmcp-page-api.js`), and the manifest reader serves each surface only
+when `Umbraco:WebMCP:ModelContext` / `PageApi` (defaulting to `Enabled`, then Development) allows it. The tool hub
+only registers with `document.modelContext` once the WebMCP surface attaches it. The registration code still ships in
+the shared hub chunk, but it doesn't run.
+
 **How to apply:** Treat "load in production" as per-surface, not package-wide. Any new surface (WebMCP, the page API, the Copilot bridge, future ones) gets its own setting and defaults to off outside Development. The "manifest is served from C#" convention in `CLAUDE.md` still holds, but its "keeps the tools out of production" wording needs updating once the bridge's gating is designed (umb-design).
