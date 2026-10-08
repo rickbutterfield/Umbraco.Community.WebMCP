@@ -309,7 +309,15 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 								const path = item.href ? toBackofficePath(item.href) : null;
 								const section = path?.match(BACKOFFICE_PATH_PATTERN)?.[1];
 								if (section) sectionByEntityType.set(item.entityType, section);
-								matches.push({ provider, entityType: item.entityType, unique: item.unique, name: item.name, path });
+								matches.push({
+									provider,
+									entityType: item.entityType,
+									unique: item.unique,
+									name: item.name,
+									// Search also finds items in the recycle bin
+									...(typeof item.isTrashed === 'boolean' ? { isTrashed: item.isTrashed } : {}),
+									path,
+								});
 							}
 						} catch (error) {
 							errors.push({ provider, error: error instanceof Error ? error.message : String(error) });

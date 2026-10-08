@@ -1,9 +1,11 @@
 import { expect } from '@open-wc/testing';
 import {
+	checkInput,
 	exposePageApi,
 	firstSentence,
 	openPath,
 	registerTools,
+	summariseInput,
 	umbWebMcpToolHub,
 	type UmbWebMcpTool,
 } from './model-context.js';
@@ -58,6 +60,32 @@ function installFakeModelContext({ attach = true } = {}) {
 		},
 	};
 }
+
+describe('summariseInput', () => {
+	it('lists the parameters, marking optional ones', () => {
+		const schema = { type: 'object', properties: { key: {}, label: {} }, required: ['key'] };
+
+		expect(summariseInput(schema)).to.equal('key, label?');
+	});
+
+	it('returns nothing for a tool without parameters', () => {
+		expect(summariseInput(undefined)).to.equal(undefined);
+	});
+});
+
+describe('checkInput', () => {
+	const schema = { type: 'object', properties: { key: {}, id: {} }, required: ['key', 'id'] };
+
+	it('accepts an input with every required parameter', () => {
+		expect(() => checkInput('tool', schema, { key: 'a', id: 'b' })).not.to.throw();
+	});
+
+	it('names the missing and the unknown parameters', () => {
+		expect(() => checkInput('tool', schema, { key: 'a', buttonId: 'b' })).to.throw(
+			"tool needs id. It doesn't take buttonId. Its parameters are: key, id.",
+		);
+	});
+});
 
 describe('firstSentence', () => {
 	it('returns the first sentence', () => {

@@ -76,6 +76,33 @@ function stableStringify(value: unknown): string {
 }
 
 /**
+ * A tool's input parameters in one short line, such as "entityType, unique, alias, section?": optional ones end in ?.
+ * Agents read this from list() instead of guessing names; describe() has the full schema.
+ */
+export function summariseInput(inputSchema?: object) {
+	const schema = inputSchema as { properties?: Record<string, unknown>; required?: Array<string> } | undefined;
+	const names = Object.keys(schema?.properties ?? {});
+	if (!names.length) return undefined;
+	return names.map((name) => (schema?.required?.includes(name) ? name : `${name}?`)).join(', ');
+}
+
+/**
+ * Throws an error that names the expected parameters when `input` lacks a required one, because agents guess names
+ * (actionAlias for alias, buttonId for id) and otherwise get an error from deep inside the tool.
+ */
+export function checkInput(name: string, inputSchema: object | undefined, input: object) {
+	const schema = inputSchema as { properties?: Record<string, unknown>; required?: Array<string> } | undefined;
+	const missing = (schema?.required ?? []).filter((key) => (input as Record<string, unknown>)[key] === undefined);
+	if (!missing.length) return;
+	const unknown = Object.keys(input).filter((key) => !(key in (schema?.properties ?? {})));
+	throw new Error(
+		`${name} needs ${missing.join(', ')}.` +
+			(unknown.length ? ` It doesn't take ${unknown.join(', ')}.` : '') +
+			` Its parameters are: ${summariseInput(inputSchema)}.`,
+	);
+}
+
+/**
  * The first sentence of a description, or all of it if it has only one.
  */
 export function firstSentence(description: string) {
@@ -210,8 +237,9 @@ class UmbWebMcpToolHub {
 	 */
 	summarise() {
 		return [...this.#stacks.keys()].map((name) => {
-			const { description, annotations } = this.describe(name);
-			return { name, summary: firstSentence(description), annotations };
+			const { description, inputSchema, annotations } = this.describe(name);
+			const input = summariseInput(inputSchema);
+			return { name, summary: firstSentence(description), ...(input ? { input } : {}), annotations };
 		});
 	}
 
@@ -229,7 +257,9 @@ class UmbWebMcpToolHub {
 		call.signal?.throwIfAborted();
 		const stack = this.#stacks.get(name);
 		if (!stack?.length) throw new Error(`No WebMCP tool named "${name}" is registered right now.`);
-		return (await stack[stack.length - 1].tool.execute(input ?? {}, call)) ?? null;
+		const { tool } = stack[stack.length - 1];
+		checkInput(name, tool.inputSchema, input ?? {});
+		return (await tool.execute(input ?? {}, call)) ?? null;
 	}
 
 	#remove(name: string, entry: UmbToolEntry) {
@@ -328,7 +358,8 @@ export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal, 
  * Exposes the same tools to page scripts, so Playwright (`page.evaluate`, Playwright MCP's `browser_evaluate`) and
  * browsers without WebMCP can call them. Only called when the page API surface is enabled.
  *
- * `list()` is kept short, because agents read it whole: each tool's name, one-sentence summary and annotations.
+ * `list()` is kept short, because agents read it whole: each tool's name, one-sentence summary, parameter names and
+ * annotations.
  * `describe(name)` returns a tool's full description and input schema, and `list({ full: true })` returns them all.
  */
 export function exposePageApi() {

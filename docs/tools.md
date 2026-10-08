@@ -98,12 +98,14 @@ the [README](../README.md#enabling)), so enabling one never enables the other:
 - **The page API** (`window.__umbWebMcp`), for page scripts. It works with or without the Chrome flag:
 
   ```js
-  window.__umbWebMcp.list(); // name, one-sentence summary and annotations of each tool
+  window.__umbWebMcp.list(); // name, one-sentence summary, parameter names and annotations of each tool
   window.__umbWebMcp.describe('umbraco_save_document'); // one tool in full, with its input schema
   window.__umbWebMcp.list({ full: true }); // every tool in full
   await window.__umbWebMcp.call('umbraco_get_tree_items', { treeAlias: 'Forms.Tree.Forms' });
   await window.__umbWebMcp.call('umbraco_save_document', {}, { signal: AbortSignal.timeout(10_000) });
   ```
 
-  `list()` is short on purpose: agents read it whole, and every input schema in it costs tokens. Use it from
+  `list()` is short on purpose: agents read it whole, and every input schema in it costs tokens. It gives each tool's
+  parameter names (`input`, with optional ones ending in `?`), and a call missing a required parameter fails with an
+  error that names the expected ones, so agents rarely need `describe`. Use it from
   Playwright's `page.evaluate`, or from Playwright MCP's `browser_evaluate`.
