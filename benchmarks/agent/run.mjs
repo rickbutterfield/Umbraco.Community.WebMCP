@@ -5,7 +5,8 @@
 // Both variants drive the same headless browser through Playwright MCP, logged in from playwright/.auth/user.json.
 // "playwright" can't run scripts in the page (browser_evaluate and browser_run_code_unsafe are disallowed), so it
 // has to work through the UI; "page-api" is told about window.__umbWebMcp. Each run is arranged, verified and cleaned
-// up through the Management API (tests/agent/fixture.spec.ts), and the result is appended to results/agent.jsonl.
+// up through the Management API (tests/agent/fixture.spec.ts). The result, with a count of the tools called, is appended
+// to results/agent.jsonl, and the full transcript is saved in results/transcripts.
 //
 // Settings (environment or .env): URL, BENCH_MODEL (default sonnet), BENCH_MAX_USD per run (default 1).
 import 'dotenv/config';
@@ -94,7 +95,36 @@ function fixture(caseId, step) {
 	return { ok: result.status === 0, output: `${result.stdout}${result.stderr}`.trim() };
 }
 
-function runAgent(benchCase, variant) {
+/**
+ * Reads Claude Code's stream-json output: the final result line, plus a count of the tools the agent called.
+ */
+function parseStream(stdout) {
+	let result;
+	const toolCalls = {};
+	for (const line of stdout.split('\n')) {
+		if (!line.trim()) continue;
+		let event;
+		try {
+			event = JSON.parse(line);
+		} catch {
+			continue;
+		}
+		if (event.type === 'result') result = event;
+		if (event.type === 'assistant') {
+			for (const part of event.message?.content ?? []) {
+				if (part.type !== 'tool_use') continue;
+				const name = part.name.replace('mcp__playwright__', '');
+				// For page scripts, count the page API call they make, so the transcript shows which tools were used
+				const call = String(part.input?.function ?? part.input?.code ?? '').match(/__umbWebMcp\.(call|list|describe)\(\s*['"]?([a-z_]*)/);
+				const key = call ? `${name}:${call[1]}${call[2] ? `:${call[2]}` : ''}` : name;
+				toolCalls[key] = (toolCalls[key] ?? 0) + 1;
+			}
+		}
+	}
+	return { result, toolCalls };
+}
+
+function runAgent(benchCase, variant, transcriptPath) {
 	const prompt = [
 		`You are testing the Umbraco backoffice at ${process.env.URL}/umbraco, using the browser through the Playwright tools. The browser is already logged in as an administrator.`,
 		VARIANT_PROMPTS[variant],
@@ -104,7 +134,8 @@ function runAgent(benchCase, variant) {
 	const claudeArgs = [
 		'-p',
 		'--output-format',
-		'json',
+		'stream-json',
+		'--verbose',
 		'--model',
 		model,
 		'--max-budget-usd',
@@ -131,15 +162,17 @@ function runAgent(benchCase, variant) {
 		maxBuffer: 64 * 1024 * 1024,
 	});
 	const wallMs = Date.now() - started;
-	try {
-		return { wallMs, ...JSON.parse(result.stdout) };
-	} catch {
-		return { wallMs, is_error: true, result: `${result.error ?? ''}${result.stdout}${result.stderr}`.slice(-2000) };
+	writeFileSync(transcriptPath, result.stdout ?? '');
+	const { result: final, toolCalls } = parseStream(result.stdout ?? '');
+	if (!final) {
+		return { wallMs, toolCalls, is_error: true, result: `${result.error ?? ''}${result.stderr}`.slice(-2000) };
 	}
+	return { wallMs, toolCalls, ...final };
 }
 
-
 const outFile = path.join(resultsDir, 'agent.jsonl');
+const transcriptsDir = path.join(resultsDir, 'transcripts');
+mkdirSync(transcriptsDir, { recursive: true });
 for (let run = 1; run <= Number(args.runs); run++) {
 	for (const benchCase of cases) {
 		// Alternate which variant goes first, so drift over a session doesn't favour one
@@ -151,7 +184,8 @@ for (let run = 1; run <= Number(args.runs); run++) {
 				process.exit(1);
 			}
 			logIn();
-			const agent = runAgent(benchCase, variant);
+			const transcript = path.join(transcriptsDir, `${benchCase.id}-${variant}-${run}-${Date.now()}.jsonl`);
+			const agent = runAgent(benchCase, variant, transcript);
 			const verified = fixture(benchCase.id, 'verify');
 			fixture(benchCase.id, 'clean-up');
 
@@ -172,6 +206,8 @@ for (let run = 1; run <= Number(args.runs); run++) {
 				cacheReadTokens: agent.usage?.cache_read_input_tokens ?? null,
 				cacheCreationTokens: agent.usage?.cache_creation_input_tokens ?? null,
 				outputTokens: agent.usage?.output_tokens ?? null,
+				toolCalls: agent.toolCalls,
+				transcript: path.relative(root, transcript),
 				verifyOutput: verified.ok ? undefined : verified.output.slice(-1000),
 			};
 			appendFileSync(outFile, `${JSON.stringify(record)}\n`);
