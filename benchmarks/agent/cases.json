@@ -1,0 +1,18 @@
+[
+	{
+		"id": "create-content",
+		"task": "Create a new page at the root of the content tree using the document type \"BenchPage\". Name it \"Bench page\", set its Textstring property to \"Hello from the benchmark\", and save it without publishing."
+	},
+	{
+		"id": "publish-content",
+		"task": "Publish the page \"Bench page\", which is at the root of the content tree."
+	},
+	{
+		"id": "rename-content",
+		"task": "Rename the page \"Bench draft name\", at the root of the content tree, to \"Bench page\" and save it."
+	},
+	{
+		"id": "trash-content",
+		"task": "Move the page \"Bench page\", at the root of the content tree, to the recycle bin."
+	}
+]

@@ -1,0 +1,40 @@
+import { defineConfig, devices } from '@playwright/test';
+import 'dotenv/config';
+import path from 'node:path';
+
+export const STORAGE_STATE = path.resolve('playwright/.auth/user.json');
+// The helpers save refreshed cookies here after each test
+process.env.STORAGE_STATE_PATH = STORAGE_STATE;
+
+export default defineConfig({
+	testDir: './tests/',
+	timeout: 60_000,
+	expect: { timeout: 10_000 },
+	// No retries: a flaky run is a result, not something to hide
+	retries: 0,
+	// The tests share one site and its content, so run them one at a time
+	workers: 1,
+	outputDir: './results/test-output',
+	reporter: [['list'], ['json', { outputFile: process.env.BENCH_JSON ?? 'results/scripted.json' }]],
+	use: {
+		baseURL: process.env.URL,
+		ignoreHTTPSErrors: true,
+		testIdAttribute: 'data-mark',
+		trace: 'retain-on-failure',
+	},
+	projects: [
+		{ name: 'setup', testMatch: 'auth.setup.ts' },
+		{
+			name: 'scripted',
+			testMatch: 'scripted/**/*.spec.ts',
+			dependencies: ['setup'],
+			use: { ...devices['Desktop Chrome'], ignoreHTTPSErrors: true, storageState: STORAGE_STATE },
+		},
+		{
+			// Arranges, verifies and cleans up for agent/run.mjs; not a benchmark itself
+			name: 'agent-fixture',
+			testMatch: 'agent/**/*.spec.ts',
+			use: { ...devices['Desktop Chrome'], ignoreHTTPSErrors: true, storageState: STORAGE_STATE },
+		},
+	],
+});
