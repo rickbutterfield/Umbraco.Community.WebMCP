@@ -137,15 +137,18 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				name: 'forms_add_page',
 				title: 'Add a form page',
 				description:
-					'Adds a page to the end of the open form, with one empty group. Returns the ids of the page, its group and the group container to add questions to. Does not save.',
+					'Adds a page to the end of the open form, with one group. Returns the ids of the page, its group and the group container to add questions to. Does not save.',
 				inputSchema: {
 					type: 'object',
-					properties: { caption: { type: 'string', description: 'The page caption. Optional.' } },
+					properties: {
+						caption: { type: 'string', description: 'The page caption. Optional.' },
+						groupCaption: { type: 'string', description: "The caption of the page's first group. Optional." },
+					},
 				},
-				execute: async ({ caption = '' }) => {
+				execute: async ({ caption = '', groupCaption = '' }) => {
 					const form = this.#form();
 					const pageId = UmbId.new();
-					const fieldset = group(pageId);
+					const fieldset = group(pageId, groupCaption);
 					this.#setPages([
 						...form.pages,
 						{ id: pageId, caption, sortOrder: form.pages.length, form: form.unique, fieldSets: [fieldset], buttonCondition: null },
