@@ -58,6 +58,15 @@ The benchmark found the problems that most of the gain came from fixing.
 The `ui` and `playwright` numbers moved by 10–15% between rounds with no code change, so differences of a few per
 cent are noise.
 
+## Verdict
+
+The tools help a little, not enough to justify them on speed or cost for flows like these. Scripted tests gain a
+fraction of a second per test; agents take about 20% fewer turns and cost about 10% less, within the run-to-run noise
+of a study this size. Reliability doesn't differ: these tasks are short and the CMS test helpers already make clicking
+reliable. The gain grew with path length (the recycle bin's menu and confirmation), so long or fragile flows (Forms'
+nested modals, block editors, pickers) are where a real difference would show. Testing was parked on 08-10-2026; if it
+resumes, add those flows as agent cases first (about $3-5 a round).
+
 ## Environment finding: SQLite hangs under repeated test load
 
 With the connection string's `Cache=Shared` (Umbraco's default for SQLite), the site hung three times in the scripted

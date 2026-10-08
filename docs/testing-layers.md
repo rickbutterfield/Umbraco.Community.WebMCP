@@ -1,6 +1,6 @@
 # Umbraco MCP, WebMCP and Playwright: where each fits
 
-*Last checked: 07-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026), Chrome 149+ and the Umbraco Developer MCP README.*
+*Last checked: 08-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026), Chrome 149+ (end to end in Chrome 154), the Umbraco Developer MCP README and this repo's benchmark ([benchmarks/RESULTS.md](../benchmarks/RESULTS.md)).*
 
 For uses beyond testing, see [Why WebMCP, beyond testing](why-webmcp.md).
 
@@ -104,14 +104,15 @@ headless CI, tree expansion races, and elements that steal clicks.
 | Part of a test | With the tools | Verdict |
 |---|---|---|
 | Getting to the entity or workspace | `umbraco_get_tree_items`, `umbraco_open_entity`, `umbraco_run_create_option`: no hover, no tree, no selectors | **Strong fit.** It's not under test, and it causes most of the flakiness |
-| Waiting until the workspace is ready | `umbraco_get_workspace_info` exposes new and unsaved state; a "workspace loaded" check would close data races | **Good fit,** with one tool to add |
+| Waiting until the workspace is ready | The open tools wait until the workspace has loaded and return its tools; `umbraco_get_workspace_info` reports `ready`, new and unsaved state | **Good fit** |
 | The feature under test | Keep Playwright clicks | **Not a fit.** Tools would skip what you're testing |
 | Asserting | Can also check state the API can't see yet, such as unsaved changes | **Small gain** |
 
 The tools also age better than selectors. They read the manifests a product registers: tree aliases, entity types
 and action aliases. Those change only when the product changes, not when its markup does.
 
-The bigger payoff is agent-driven work:
+The payoff we expected to be bigger is agent-driven work. Measured on short content tasks it was modest (see
+[What the benchmark showed](#what-the-benchmark-showed)), but these are the cases where it should grow:
 
 - **Reproducing an issue:** the agent calls named steps instead of reading snapshots and clicking.
 - **Smoke testing across version lines:** the agent reaches every tree, action and modal quickly, then spends its
@@ -123,12 +124,28 @@ The bigger payoff is agent-driven work:
 - **The test site needs this package installed.** It's dev-only and gated, but it's a new test dependency.
 - **Overusing the tools gives false confidence:** a green test that never clicked the button. Keep the rule: tools
   for setup and navigation, the UI for the step under test.
-- **Two known gaps:**
-  - Modal buttons are matched by their visible label, which gets translated; matching by `id` is planned.
-  - Whether the sidebar tree refreshes after an action run through the tools is unverified.
+- **Navigating within an open workspace reuses it.** The backoffice keeps the open workspace when you open another
+  entity of the same type, so tools that wait for new workspace tools must also check the open workspace's key.
+  This package does; a package's own tools should too.
 
-### Finding out whether it's worth it
+### What the benchmark showed
 
-Rewrite only the navigation of a suite's flakiest specs to use the tools, then compare run time and retry counts in
-CI over a week. Separately, run an exploratory smoke test with and without the tools, and compare speed and token
-use.
+On 08-10-2026, `benchmarks/` ran five CMS content acceptance tests and four agent tasks (create, publish, rename and
+trash a page) with and without the page API. Full numbers and method are in
+[benchmarks/RESULTS.md](../benchmarks/RESULTS.md).
+
+- **Scripted tests:** using the tools only to navigate cut the step under test by 5%, a fraction of a second, with
+  slightly steadier timings. Doing everything through the tools cut it by 21%, but those tests no longer test the
+  UI. Everything passed either way.
+- **Agents (Claude Sonnet):** about 20% fewer turns and 10% lower cost, at the same speed, because each tool call is
+  still a model round trip. The clicking-only numbers moved 10-15% between rounds with no code change, so this is a
+  hint, not proof.
+- **Most of the value came from what the benchmark found:** a race between workspace tools and the workspace loading
+  (1 run in 10 failed), 10 s waits when the backoffice reused an open workspace, and agents guessing parameter names
+  from a short tool list. Before those fixes, agents with the page API were slower and more expensive than clicking.
+
+**Verdict:** on short, well-trodden flows the tools don't justify themselves on speed or cost. The untested cases
+where they should matter are long or fragile flows (Forms' nested modals, block editors, pickers, hover menus) and
+packages an agent hasn't seen. Testing was parked there on 08-10-2026; if it resumes, add those flows to the agent
+benchmark first. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
+named tools with approval on consequential calls are safer for editors than an agent clicking, whatever the speed.
