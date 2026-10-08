@@ -70,7 +70,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			title: 'List open modals',
 			description:
 				'Lists the open modals and sidebars, topmost last, with the data they were opened with, their current value and the labels of their buttons.',
-			annotations: { readOnlyHint: true },
+			annotations: { readOnlyHint: true, untrustedContentHint: true },
 			async execute() {
 				return watcher.modals.map((modal) => ({
 					key: modal.key,
@@ -90,6 +90,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			title: 'Set modal value',
 			description:
 				'Replaces the value of an open modal, for example the selection of a picker. The shape depends on the modal: read its current value with umbraco_list_modals first. The modal UI may not show the change.',
+			annotations: { untrustedContentHint: true },
 			inputSchema: {
 				type: 'object',
 				properties: { ...KEY_PROPERTY, value: { description: 'The new value.' } },

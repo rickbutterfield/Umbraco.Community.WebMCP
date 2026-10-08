@@ -1,5 +1,5 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
-import { registerTools, type UmbWebMcpTool } from '../model-context.ts';
+import { registerTools, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
 import { runWithoutBlocking } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
@@ -94,13 +94,13 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 					properties: { alias: { type: 'string', description: 'From umbraco_list_workspace_actions.' } },
 					required: ['alias'],
 				},
-				execute: async ({ alias }: { alias: string }) => {
+				execute: async ({ alias }: { alias: string }, call?: UmbWebMcpToolCall) => {
 					const action = this.#workspaceActions.find((controller) => controller.manifest.alias === alias)?.api;
 					if (!action)
 						throw new Error(
 							`Action "${alias}" is not available in this workspace. Use umbraco_list_workspace_actions.`,
 						);
-					const { completed } = await runWithoutBlocking(() => action.execute());
+					const { completed } = await runWithoutBlocking(() => action.execute(), undefined, call?.signal);
 					return { completed, workspace: this.#getInfo() };
 				},
 			},
