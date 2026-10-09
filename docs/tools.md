@@ -26,6 +26,7 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
 | `umbraco_list_allowed_document_types` | always | Allowed document types at root or under a parent | R, U |
 | `umbraco_open_new_document` / `umbraco_open_document` | always | Open the document workspace | none |
+| `umbraco_create_document` | always | Open a new document, set its name and values, and save or publish it, in one call (invariant documents) | C, U |
 | `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state | R |
 | `umbraco_list_workspace_actions` / `umbraco_run_workspace_action` | any workspace open | The workspace footer buttons, such as Save | R / C |
 | `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values | R, U |

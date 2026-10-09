@@ -11,6 +11,20 @@ import { UmbId } from '@umbraco-cms/backoffice/id';
 const FIELD_TYPE_URL = '/umbraco/forms/management/api/v1/field-type';
 
 /** The shapes Forms' own designer creates (FormDesignScaffoldsGenerator in Forms). */
+const FIELD_PROPERTIES = {
+	fieldType: { type: 'string', description: 'A field type name or alias, such as Short answer.' },
+	caption: { type: 'string', description: 'The question text.' },
+	alias: { type: 'string' },
+	mandatory: { type: 'boolean' },
+	requiredErrorMessage: { type: 'string' },
+	options: { type: 'array', items: { type: 'string' }, description: 'For field types that take options.' },
+	settings: { type: 'object', description: 'Setting values by alias, such as { "Placeholder": "Your name" }.' },
+};
+const FIELDS_SCHEMA = {
+	type: 'array',
+	items: { type: 'object', properties: FIELD_PROPERTIES, required: ['fieldType', 'caption'] },
+};
+
 const container = () => ({ id: UmbId.new(), caption: '', width: 12, fields: [] });
 const group = (pageId, caption = '', sortOrder = 0) => ({
 	id: UmbId.new(),
@@ -99,6 +113,75 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 		};
 	}
 
+	/** Adds a question to the given container of the open form, or else its last one. */
+	async #addField(input) {
+		const type = await this.#findFieldType(input.fieldType);
+		if (input.options?.length && !type.supportsPrevalues)
+			throw new Error(`"${type.name}" doesn't take options.`);
+		const form = this.#form();
+		const containers = this.#containers(form);
+		const target = input.containerId
+			? containers.find((c) => c.container.id === input.containerId)
+			: containers.at(-1);
+		if (!target) throw new Error(`No container "${input.containerId}". Use forms_get_form_design.`);
+
+		const taken = new Set(containers.flatMap((c) => c.container.fields.map((field) => field.alias)));
+		let alias = input.alias || toAlias(input.caption) || 'question';
+		for (let i = 2; taken.has(alias); i++) alias = `${input.alias || toAlias(input.caption)}${i}`;
+
+		const defaults = Object.fromEntries(type.settings.map((setting) => [setting.alias, setting.defaultValue ?? '']));
+		const field = {
+			id: UmbId.new(),
+			caption: input.caption,
+			alias,
+			tooltip: '',
+			cssClass: '',
+			fieldTypeId: type.id,
+			mandatory: input.mandatory ?? type.mandatoryByDefault ?? false,
+			requiredErrorMessage: input.requiredErrorMessage ?? '',
+			invalidErrorMessage: '',
+			regex: '',
+			// The API wants a GUID here, and the empty GUID means no prevalue source (the designer maps its empty string to it)
+			prevalueSourceId: '00000000-0000-0000-0000-000000000000',
+			preValues: (input.options ?? []).map((value) => ({ value, caption: null })),
+			dataSourceFieldKey: '',
+			condition: { id: UmbId.new(), enabled: false, actionType: 'Show', logicType: 'All', rules: [] },
+			containsSensitiveData: false,
+			settings: { ...defaults, ...(input.settings ?? {}) },
+			allowedUploadTypes: [],
+			allowMultipleFileUploads: false,
+			mappedMemberPropertyAlias: null,
+			memberPrefillMode: 'None',
+		};
+
+		this.#setPages(
+			form.pages.map((page) =>
+				page !== target.page
+					? page
+					: {
+							...page,
+							fieldSets: page.fieldSets.map((fieldset) =>
+								fieldset !== target.fieldset
+									? fieldset
+									: {
+											...fieldset,
+											containers: fieldset.containers.map((c) =>
+												c !== target.container ? c : { ...c, fields: [...c.fields, field] },
+											),
+										},
+							),
+						},
+			),
+		);
+		return { fieldId: field.id, alias, fieldType: type.name };
+	}
+
+	async #addFields(fields, containerId) {
+		const added = [];
+		for (const field of fields) added.push(await this.#addField({ ...field, containerId: field.containerId ?? containerId }));
+		return added;
+	}
+
 	getTools() {
 		return [
 			{
@@ -171,15 +254,16 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				name: 'forms_add_page',
 				title: 'Add a form page',
 				description:
-					'Adds a page to the end of the open form, with one group. Returns the ids of the page, its group and the group container to add questions to. Does not save.',
+					'Adds a page to the end of the open form, with one group and any questions you pass. Returns the ids of the page, its group and the group container to add questions to. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {
 						caption: { type: 'string', description: 'The page caption. Optional.' },
 						groupCaption: { type: 'string', description: "The caption of the page's first group. Optional." },
+						fields: { ...FIELDS_SCHEMA, description: 'Questions to add to the group, as for forms_add_fields. Optional.' },
 					},
 				},
-				execute: async ({ caption = '', groupCaption = '' }) => {
+				execute: async ({ caption = '', groupCaption = '', fields = [] }) => {
 					const form = this.#form();
 					const pageId = UmbId.new();
 					const fieldset = group(pageId, groupCaption);
@@ -187,7 +271,8 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 						...form.pages,
 						{ id: pageId, caption, sortOrder: form.pages.length, form: form.unique, fieldSets: [fieldset], buttonCondition: null },
 					]);
-					return { pageId, groupId: fieldset.id, containerId: fieldset.containers[0].id };
+					const containerId = fieldset.containers[0].id;
+					return { pageId, groupId: fieldset.id, containerId, fields: await this.#addFields(fields, containerId) };
 				},
 			},
 			{
@@ -221,78 +306,27 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				inputSchema: {
 					type: 'object',
 					properties: {
-						fieldType: { type: 'string', description: 'A field type name or alias, such as Short answer.' },
-						caption: { type: 'string', description: 'The question text.' },
-						alias: { type: 'string' },
-						mandatory: { type: 'boolean' },
-						requiredErrorMessage: { type: 'string' },
-						options: { type: 'array', items: { type: 'string' }, description: 'For field types that take options.' },
-						settings: { type: 'object', description: 'Setting values by alias, such as { "Placeholder": "Your name" }.' },
+						...FIELD_PROPERTIES,
 						containerId: { type: 'string', description: 'From forms_get_form_design, forms_add_page or forms_add_group.' },
 					},
 					required: ['fieldType', 'caption'],
 				},
-				execute: async (input) => {
-					const type = await this.#findFieldType(input.fieldType);
-					if (input.options?.length && !type.supportsPrevalues)
-						throw new Error(`"${type.name}" doesn't take options.`);
-					const form = this.#form();
-					const containers = this.#containers(form);
-					const target = input.containerId
-						? containers.find((c) => c.container.id === input.containerId)
-						: containers.at(-1);
-					if (!target) throw new Error(`No container "${input.containerId}". Use forms_get_form_design.`);
-
-					const taken = new Set(containers.flatMap((c) => c.container.fields.map((field) => field.alias)));
-					let alias = input.alias || toAlias(input.caption) || 'question';
-					for (let i = 2; taken.has(alias); i++) alias = `${input.alias || toAlias(input.caption)}${i}`;
-
-					const defaults = Object.fromEntries(type.settings.map((setting) => [setting.alias, setting.defaultValue ?? '']));
-					const field = {
-						id: UmbId.new(),
-						caption: input.caption,
-						alias,
-						tooltip: '',
-						cssClass: '',
-						fieldTypeId: type.id,
-						mandatory: input.mandatory ?? type.mandatoryByDefault ?? false,
-						requiredErrorMessage: input.requiredErrorMessage ?? '',
-						invalidErrorMessage: '',
-						regex: '',
-						// The API wants a GUID here, and the empty GUID means no prevalue source (the designer maps its empty string to it)
-						prevalueSourceId: '00000000-0000-0000-0000-000000000000',
-						preValues: (input.options ?? []).map((value) => ({ value, caption: null })),
-						dataSourceFieldKey: '',
-						condition: { id: UmbId.new(), enabled: false, actionType: 'Show', logicType: 'All', rules: [] },
-						containsSensitiveData: false,
-						settings: { ...defaults, ...(input.settings ?? {}) },
-						allowedUploadTypes: [],
-						allowMultipleFileUploads: false,
-						mappedMemberPropertyAlias: null,
-						memberPrefillMode: 'None',
-					};
-
-					this.#setPages(
-						form.pages.map((page) =>
-							page !== target.page
-								? page
-								: {
-										...page,
-										fieldSets: page.fieldSets.map((fieldset) =>
-											fieldset !== target.fieldset
-												? fieldset
-												: {
-														...fieldset,
-														containers: fieldset.containers.map((c) =>
-															c !== target.container ? c : { ...c, fields: [...c.fields, field] },
-														),
-													},
-										),
-									},
-						),
-					);
-					return { fieldId: field.id, alias, fieldType: type.name };
+				execute: (input) => this.#addField(input),
+			},
+			{
+				name: 'forms_add_fields',
+				title: 'Add questions to the form',
+				description:
+					'Adds several questions to the open form in one call, in order, in the given container or else the last one. Each takes the same input as forms_add_field. Does not save.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						fields: FIELDS_SCHEMA,
+						containerId: { type: 'string', description: 'From forms_get_form_design, forms_add_page or forms_add_group.' },
+					},
+					required: ['fields'],
 				},
+				execute: async ({ fields, containerId }) => ({ fields: await this.#addFields(fields, containerId) }),
 			},
 		];
 	}

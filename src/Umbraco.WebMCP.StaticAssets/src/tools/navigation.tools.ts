@@ -1,4 +1,4 @@
-import { openPath, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
+import { openPath, umbWebMcpToolHub, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import {
 	UMB_CREATE_DOCUMENT_WORKSPACE_PATH_PATTERN,
@@ -417,6 +417,68 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 					}),
 					call?.signal,
 				);
+			},
+		},
+		{
+			name: 'umbraco_create_document',
+			title: 'Create a document',
+			description:
+				'Creates a document in one call: opens a new document of the given type, sets its name and property values, then saves it (or saves and publishes it). Returns what the save returned. For documents that vary by culture or segment, use umbraco_open_new_document and the document tools instead.',
+			annotations: { consequentialHint: true, untrustedContentHint: true },
+			inputSchema: {
+				type: 'object',
+				properties: {
+					documentType: {
+						type: 'string',
+						description: 'The document type key or name, from umbraco_list_allowed_document_types.',
+					},
+					parentDocumentKey: {
+						type: 'string',
+						description: 'The key of the parent document. Omit to create at the content root.',
+					},
+					name: { type: 'string' },
+					values: {
+						type: 'object',
+						description: 'Property values by alias, each in the property editor stored format, such as { "title": "Hello" }.',
+					},
+					publish: { type: 'boolean', description: 'Save and publish instead of only saving.' },
+				},
+				required: ['documentType', 'name'],
+			},
+			async execute(
+				input: {
+					documentType: string;
+					parentDocumentKey?: string;
+					name: string;
+					values?: Record<string, unknown>;
+					publish?: boolean;
+				},
+				call?: UmbWebMcpToolCall,
+			) {
+				const allowed = (await umbWebMcpToolHub.call(
+					'umbraco_list_allowed_document_types',
+					{ parentDocumentKey: input.parentDocumentKey },
+					call,
+				)) as Array<{ key: string; name: string }>;
+				const wanted = input.documentType.toLowerCase();
+				const documentType = allowed.find((x) => x.key === input.documentType || x.name.toLowerCase() === wanted);
+				if (!documentType) {
+					throw new Error(
+						`"${input.documentType}" can't be created here. Allowed document types: ${allowed.map((x) => x.name).join(', ') || 'none'}.`,
+					);
+				}
+
+				const opened = (await umbWebMcpToolHub.call(
+					'umbraco_open_new_document',
+					{ documentTypeKey: documentType.key, parentDocumentKey: input.parentDocumentKey },
+					call,
+				)) as { workspaceReady?: boolean };
+				if (!opened.workspaceReady) throw new Error('The new document did not finish loading.');
+				await umbWebMcpToolHub.call('umbraco_set_document_name', { name: input.name }, call);
+				for (const [alias, value] of Object.entries(input.values ?? {})) {
+					await umbWebMcpToolHub.call('umbraco_set_document_property_value', { alias, value }, call);
+				}
+				return umbWebMcpToolHub.call(input.publish ? 'umbraco_save_and_publish_document' : 'umbraco_save_document', {}, call);
 			},
 		},
 		{

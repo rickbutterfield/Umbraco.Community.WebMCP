@@ -1,6 +1,7 @@
 [
 	"umbraco_click_modal_button",
 	"umbraco_close_modal",
+	"umbraco_create_document",
 	"umbraco_get_document_state",
 	"umbraco_get_location",
 	"umbraco_get_tool_description",
