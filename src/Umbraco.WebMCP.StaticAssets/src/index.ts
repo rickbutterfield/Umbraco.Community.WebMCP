@@ -1,7 +1,8 @@
 import './extension-types.ts';
 import type { UmbWebMcpToolsetApi } from './extension-types.ts';
-import { registerTools } from './model-context.ts';
+import { registerTools, registerToolsInSection } from './model-context.ts';
 import { UmbWebMcpNotificationWatcher } from './notification-watcher.ts';
+import { createDocumentTools } from './tools/document.tools.ts';
 import { createEntityActionTools } from './tools/entity-action.tools.ts';
 import { createModalTools } from './tools/modal.tools.ts';
 import { createNavigationTools } from './tools/navigation.tools.ts';
@@ -23,6 +24,7 @@ export const onInit: UmbEntryPointOnInit = (host, extensionRegistry) => {
 		[...createNavigationTools(host), ...createEntityActionTools(host), ...createModalTools(host)],
 		abortController.signal,
 	);
+	registerToolsInSection('content', createDocumentTools(host), abortController.signal);
 	extensionRegistry.registerMany(workspaceManifests);
 
 	// Toolsets that products register for the whole backoffice.

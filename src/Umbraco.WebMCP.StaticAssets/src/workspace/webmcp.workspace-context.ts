@@ -1,7 +1,7 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import { registerTools, type UmbWebMcpTool, type UmbWebMcpToolCall } from '../model-context.ts';
 import { startOutcome } from '../outcome.ts';
-import { isWorkspaceReady, runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
+import { findAction, isWorkspaceReady, runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbExtensionsApiInitializer } from '@umbraco-cms/backoffice/extension-api';
@@ -61,6 +61,14 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 		}
 	}
 
+	#getActions() {
+		return this.#workspaceActions.map((controller) => ({
+			alias: controller.manifest.alias as string,
+			label: this.#localize.string(controller.manifest.meta?.label ?? controller.manifest.name),
+			api: controller.api,
+		}));
+	}
+
 	#getInfo() {
 		const workspace = this.#workspace;
 		return {
@@ -70,6 +78,7 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 			isNew: workspace.getIsNew?.() ?? null,
 			hasUnsavedChanges: workspace.getHasUnpersistedChanges?.() ?? null,
 			ready: isWorkspaceReady(workspace),
+			actions: this.#getActions().map(({ alias, label }) => ({ alias, label })),
 		};
 	}
 
@@ -79,41 +88,36 @@ export class UmbWebMcpWorkspaceContext extends UmbControllerBase {
 				name: 'umbraco_get_workspace_info',
 				title: 'Get open workspace',
 				description:
-					'Returns the workspace that is open: its alias, entity type and key, whether it is new, whether it has unsaved changes and whether it has finished loading. When a workspace is open in a modal, this describes the modal one.',
+					'Returns the workspace that is open: its alias, entity type and key, whether it is new, whether it has unsaved changes, whether it has finished loading and its footer actions, such as Save. When a workspace is open in a modal, this describes the modal one.',
 				annotations: { readOnlyHint: true },
 				execute: async () => this.#getInfo(),
-			},
-			{
-				name: 'umbraco_list_workspace_actions',
-				title: 'List workspace actions',
-				description: 'Lists the buttons in the open workspace footer, such as Save, Save and publish or Submit.',
-				annotations: { readOnlyHint: true },
-				execute: async () =>
-					this.#workspaceActions.map(({ manifest }) => ({
-						alias: manifest.alias,
-						label: this.#localize.string(manifest.meta?.label ?? manifest.name),
-					})),
 			},
 			{
 				name: 'umbraco_run_workspace_action',
 				title: 'Run workspace action',
 				description:
-					'Runs a workspace footer action, as clicking its button does, and returns any notifications it showed. Validation failures are returned as an error. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
+					'Runs a button in the open workspace footer by its label, such as Save or Save and publish, as clicking it does, and returns any notifications it showed and the workspace afterwards. Validation failures are returned as an error. If it opens a modal, for example to choose variants, this returns with completed false: finish it with the modal tools.',
 				annotations: { consequentialHint: true },
 				inputSchema: {
 					type: 'object',
-					properties: { alias: { type: 'string', description: 'From umbraco_list_workspace_actions.' } },
-					required: ['alias'],
+					properties: {
+						action: {
+							type: 'string',
+							description: 'The button label, such as Save, or its alias, from umbraco_get_workspace_info.',
+						},
+					},
+					required: ['action'],
 				},
-				execute: async ({ alias }: { alias: string }, call?: UmbWebMcpToolCall) => {
-					const action = this.#workspaceActions.find((controller) => controller.manifest.alias === alias)?.api;
-					if (!action)
-						throw new Error(
-							`Action "${alias}" is not available in this workspace. Use umbraco_list_workspace_actions.`,
-						);
+				execute: async ({ action: wanted }: { action: string }, call?: UmbWebMcpToolCall) => {
+					const found = findAction(this.#getActions(), wanted, 'in this workspace');
 					const outcome = startOutcome();
-					const { completed } = await runWithoutBlocking(() => action.execute(), undefined, call?.signal);
-					return { completed, ...(await outcome.report()), workspace: this.#getInfo() };
+					const { completed } = await runWithoutBlocking(() => found.api.execute(), undefined, call?.signal);
+					return {
+						completed,
+						ran: { alias: found.alias, label: found.label },
+						...(await outcome.report()),
+						workspace: this.#getInfo(),
+					};
 				},
 			},
 		];

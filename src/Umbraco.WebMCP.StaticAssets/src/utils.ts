@@ -139,3 +139,22 @@ export function navigate(path: string) {
 	history.pushState(null, '', path);
 	return { navigatedTo: location.pathname };
 }
+
+export interface UmbNamedAction {
+	alias: string;
+	label: string;
+}
+
+/**
+ * Finds the action an agent asked for, by alias or else by its label ignoring case and surrounding "...", so an agent
+ * can run "Save" or "Trash" without listing the actions first. Throws with the available labels when nothing matches.
+ */
+export function findAction<T extends UmbNamedAction>(actions: Array<T>, wanted: string, where: string): T {
+	const normalise = (text: string) => text.trim().replace(/(\.\.\.|…)$/, '').toLowerCase();
+	const found =
+		actions.find((action) => action.alias === wanted) ??
+		actions.find((action) => normalise(action.label) === normalise(wanted));
+	if (found) return found;
+	const available = actions.map((action) => action.label).join(', ') || 'none';
+	throw new Error(`"${wanted}" is not available ${where}. Available: ${available}.`);
+}

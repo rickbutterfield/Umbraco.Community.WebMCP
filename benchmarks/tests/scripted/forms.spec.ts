@@ -112,18 +112,13 @@ const hybridSteps = (ui: UiHelpers, page: Page): Steps => ({
 	...uiSteps(ui, page),
 	async openNewForm() {
 		await goToForms(ui);
-		const root = await formsRoot(page);
-		const options = await callTool(page, 'umbraco_list_create_options', root);
-		const newForm = options.find((option: { label: string }) => option.label === 'New Form');
-		await callTool(page, 'umbraco_run_create_option', { ...root, alias: newForm.alias });
+		await callTool(page, 'umbraco_run_create_option', { ...(await formsRoot(page)), action: 'New Form' });
 	},
 	async trash(name) {
 		await goToForms(ui);
 		const { matches } = await callTool(page, 'umbraco_search_entities', { query: name, entityType: 'forms-form' });
 		const form = matches.find((match: { name: string; isTrashed?: boolean }) => match.name === name && !match.isTrashed);
-		const actions = await callTool(page, 'umbraco_list_entity_actions', { entityType: 'forms-form', unique: form.unique });
-		const trash = actions.find((action: { alias: string }) => action.alias.endsWith('Trash'));
-		await callTool(page, 'umbraco_run_entity_action', { entityType: 'forms-form', unique: form.unique, alias: trash.alias });
+		await callTool(page, 'umbraco_run_entity_action', { entityType: 'forms-form', unique: form.unique, action: 'Trash' });
 		await clickConfirmTrash(page);
 	},
 });
@@ -148,16 +143,14 @@ const toolSteps = (ui: UiHelpers, page: Page): Steps => ({
 		await callTool(page, 'forms_add_page');
 	},
 	async save() {
-		const result = await callTool(page, 'umbraco_run_workspace_action', { alias: 'Forms.WorkspaceAction.Form.Save' });
+		const result = await callTool(page, 'umbraco_run_workspace_action', { action: 'Forms.WorkspaceAction.Form.Save' });
 		expect(result.completed).toBe(true);
 	},
 	async trash(name) {
 		await goToForms(ui);
 		const { matches } = await callTool(page, 'umbraco_search_entities', { query: name, entityType: 'forms-form' });
 		const form = matches.find((match: { name: string; isTrashed?: boolean }) => match.name === name && !match.isTrashed);
-		const actions = await callTool(page, 'umbraco_list_entity_actions', { entityType: 'forms-form', unique: form.unique });
-		const trash = actions.find((action: { alias: string }) => action.alias.endsWith('Trash'));
-		await callTool(page, 'umbraco_run_entity_action', { entityType: 'forms-form', unique: form.unique, alias: trash.alias });
+		await callTool(page, 'umbraco_run_entity_action', { entityType: 'forms-form', unique: form.unique, action: 'Trash' });
 		const modal = (await callTool(page, 'umbraco_list_modals')).at(-1);
 		const clicked = await callTool(page, 'umbraco_click_modal_button', { key: modal.key, id: 'confirm' });
 		expect(clicked.closed).toBe(true);

@@ -364,6 +364,28 @@ export function registerTools(tools: Array<UmbWebMcpTool>, signal: AbortSignal, 
 }
 
 /**
+ * Registers tools only while the backoffice shows the section with this pathname, such as "content", and removes
+ * them when the agent moves to another section, so agents aren't sent tools that don't apply where they are. Follows
+ * the router's changestate event, which it fires whenever the path changes.
+ */
+export function registerToolsInSection(sectionPathname: string, tools: Array<UmbWebMcpTool>, signal: AbortSignal) {
+	let registration: AbortController | undefined;
+	const update = () => {
+		const inSection = location.pathname.match(/\/section\/([^/]+)/)?.[1] === sectionPathname;
+		if (inSection && !registration && !signal.aborted) {
+			registration = new AbortController();
+			registerTools(tools, AbortSignal.any([signal, registration.signal]));
+		} else if (!inSection && registration) {
+			registration.abort();
+			registration = undefined;
+		}
+	};
+	window.addEventListener('changestate', update, { signal });
+	window.addEventListener('popstate', update, { signal });
+	update();
+}
+
+/**
  * Exposes the same tools to page scripts, so Playwright (`page.evaluate`, Playwright MCP's `browser_evaluate`) and
  * browsers without WebMCP can call them. Only called when the page API surface is enabled.
  *
@@ -398,7 +420,8 @@ async function isOpenAndReady(unique: string) {
 
 /**
  * Navigates to a backoffice path. When the path opens a workspace, waits until it has loaded and registered its
- * tools, then returns their names, so an agent knows what it can call next without listing every tool again.
+ * tools, then returns their names and the workspace info, with its footer actions, so an agent knows what it can call
+ * next without listing every tool again.
  */
 export async function openPath(path: string, signal?: AbortSignal) {
 	const since = umbWebMcpToolHub.generation;
@@ -409,5 +432,10 @@ export async function openPath(path: string, signal?: AbortSignal) {
 		signal,
 		alreadyDone: unique ? () => isOpenAndReady(unique) : undefined,
 	});
-	return { ...result, workspaceReady, workspaceTools: umbWebMcpToolHub.namesInScope('workspace') };
+	const workspaceTools = umbWebMcpToolHub.namesInScope('workspace');
+	// The workspace's footer actions come with it, so an agent can save without asking what the buttons are
+	const workspace = workspaceTools.includes('umbraco_get_workspace_info')
+		? await umbWebMcpToolHub.call('umbraco_get_workspace_info', {}, { signal }).catch(() => undefined)
+		: undefined;
+	return { ...result, workspaceReady, workspaceTools, ...(workspace ? { workspace } : {}) };
 }

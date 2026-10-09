@@ -5,6 +5,7 @@ import {
 	firstSentence,
 	openPath,
 	registerTools,
+	registerToolsInSection,
 	summariseInput,
 	umbWebMcpToolHub,
 	type UmbWebMcpTool,
@@ -98,6 +99,44 @@ describe('firstSentence', () => {
 
 	it('returns the whole description when there is one sentence without a full stop', () => {
 		expect(firstSentence('Opens a thing')).to.equal('Opens a thing');
+	});
+});
+
+describe('registerToolsInSection', () => {
+	const startPath = location.pathname;
+	const goTo = (path: string) => {
+		history.pushState(null, '', path);
+		window.dispatchEvent(new Event('changestate'));
+	};
+	const registered = (name: string) => umbWebMcpToolHub.list().some((x) => x.name === name);
+	afterEach(() => history.replaceState(null, '', startPath));
+
+	it('registers the tools only while their section is shown', () => {
+		const name = uniqueName();
+		const controller = new AbortController();
+		goTo('/umbraco/section/settings');
+		registerToolsInSection('content', [tool(name, 'ok')], controller.signal);
+		expect(registered(name)).to.equal(false);
+
+		goTo('/umbraco/section/content/workspace/document/edit/abc');
+		expect(registered(name)).to.equal(true);
+
+		goTo('/umbraco/section/forms');
+		expect(registered(name)).to.equal(false);
+		controller.abort();
+	});
+
+	it('stops following the path once aborted', () => {
+		const name = uniqueName();
+		const controller = new AbortController();
+		goTo('/umbraco/section/content');
+		registerToolsInSection('content', [tool(name, 'ok')], controller.signal);
+		controller.abort();
+		expect(registered(name)).to.equal(false);
+
+		goTo('/umbraco/section/settings');
+		goTo('/umbraco/section/content');
+		expect(registered(name)).to.equal(false);
 	});
 });
 

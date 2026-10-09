@@ -18,17 +18,17 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_get_tree_items` | always | Root entity and root items of a tree, or the children of an item | R, U |
 | `umbraco_search_entities` | always | Find entities by name with the backoffice search; returns their paths | R, U |
 | `umbraco_open_entity` | always | Open `section/{section}/workspace/{entityType}/edit/{unique}` | none |
-| `umbraco_list_entity_actions` / `umbraco_run_entity_action` | always | The "..." menu of an entity | R / C |
-| `umbraco_list_create_options` / `umbraco_run_create_option` | always | The options in an entity's Create dialog | R / none |
+| `umbraco_run_entity_action` | always | Run an action from an entity's "..." menu by label, such as Trash; lists them without one | C |
+| `umbraco_run_create_option` | always | Run an option from an entity's Create dialog by label, such as New Form; lists them without one | none |
 | `umbraco_list_modals` | always | Open modals, with their data, value and buttons (id and label) | R, U |
 | `umbraco_click_modal_button` | always | Click a modal button by id, or by label | C |
 | `umbraco_set_modal_value` | always | Change a modal's pending value | U |
 | `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
-| `umbraco_list_allowed_document_types` | always | Allowed document types at root or under a parent | R, U |
-| `umbraco_open_new_document` / `umbraco_open_document` | always | Open the document workspace | none |
-| `umbraco_create_document` | always | Open a new document, set its name and values, and save or publish it, in one call (invariant documents) | C, U |
-| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state | R |
-| `umbraco_list_workspace_actions` / `umbraco_run_workspace_action` | any workspace open | The workspace footer buttons, such as Save | R / C |
+| `umbraco_list_allowed_document_types` | Content section open | Allowed document types at root or under a parent | R, U |
+| `umbraco_open_new_document` / `umbraco_open_document` | Content section open | Open the document workspace | none |
+| `umbraco_create_document` | Content section open | Open a new document, set its name and values, and save or publish it, in one call (invariant documents) | C, U |
+| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state, and footer actions | R |
+| `umbraco_run_workspace_action` | any workspace open | Run a workspace footer button by label, such as Save; `umbraco_get_workspace_info` lists them | C |
 | `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values | R, U |
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |

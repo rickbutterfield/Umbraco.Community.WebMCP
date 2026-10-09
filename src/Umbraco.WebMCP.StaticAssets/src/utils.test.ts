@@ -1,5 +1,5 @@
 import { expect } from '@open-wc/testing';
-import { isWorkspaceReady, runWithoutBlocking, toPlain, waitForQuiet, whenWorkspaceReady } from './utils.js';
+import { findAction, isWorkspaceReady, runWithoutBlocking, toPlain, waitForQuiet, whenWorkspaceReady } from './utils.js';
 
 /**
  * Counts the timers started through window.setTimeout and not yet fired or cleared, for the duration of a test.
@@ -280,5 +280,26 @@ describe('toPlain', () => {
 
 	it('turns undefined into null', () => {
 		expect(toPlain(undefined)).to.equal(null);
+	});
+});
+
+describe('findAction', () => {
+	const actions = [
+		{ alias: 'Umb.EntityAction.Document.Trash', label: 'Trash' },
+		{ alias: 'Umb.EntityAction.Document.Move', label: 'Move to...' },
+	];
+
+	it('finds an action by alias', () => {
+		expect(findAction(actions, 'Umb.EntityAction.Document.Trash', 'here').label).to.equal('Trash');
+	});
+
+	it('finds an action by label, ignoring case and a trailing ellipsis', () => {
+		expect(findAction(actions, 'move to', 'here').alias).to.equal('Umb.EntityAction.Document.Move');
+	});
+
+	it('names the available labels when nothing matches', () => {
+		expect(() => findAction(actions, 'Delete', 'for this entity')).to.throw(
+			'"Delete" is not available for this entity. Available: Trash, Move to....',
+		);
 	});
 });
