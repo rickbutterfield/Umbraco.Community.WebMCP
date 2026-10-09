@@ -153,6 +153,26 @@ out of reach. CMS and Forms 18.2.1; the content baselines below were measured on
   the page API's `list()` gives one-sentence summaries once and the agent asks for more only when it needs it. Fewer
   tools exposed at once, or a client that loads tool definitions lazily, would close the gap; the descriptions won't.
 
+**Round 3, client-side tool search and tools that do a whole job** (three tasks, 3 runs each, all 27 passed). Median
+turns and mean cost per run:
+
+| Task | Page API | Page API + whole-job tools | WebMCP | WebMCP + whole-job tools | WebMCP + Claude Code tool search |
+|---|---|---|---|---|---|
+| Create content | 8, $0.053 | 9, $0.063 | 11, $0.127 | 10, $0.113 | 14, $0.097 |
+| Build a form | 11, $0.087 | 11, $0.094 | 15, $0.171 | 14, $0.160 | 22, $0.203 |
+| Add a page to a form | 10, $0.076 | 10, $0.077 | 11, $0.126 | 10, $0.148 | 16, $0.132 |
+
+- **Tool search** (`ENABLE_TOOL_SEARCH=true`, so MCP tool definitions load only when the agent looks them up): a
+  quarter cheaper on creating content, where the agent needs few tools, but dearer and slower on Forms, where it spends
+  extra turns looking tools up (up to 31 turns to build a form).
+- **Whole-job tools** (`umbraco_create_document`, which opens, fills and saves a document in one call, and
+  `forms_add_fields`, with questions on `forms_add_page`): when the agent used `umbraco_create_document`, creating
+  content took 6 turns and 22-24 s, the fastest of any run. But it chose the step-by-step tools in 4 of 6 runs, and on
+  Forms, where it always used the multi-question tools, the turns hardly moved: the edits were never the bulk. What's
+  left is a floor of about 8-10 turns spent finding the section, listing tools, opening the form, finding the Save
+  action and checking the result.
+- So per task the turn floor, not the editing, now decides speed, and WebMCP's eager tool list still decides its cost.
+
 ## Verdict
 
 **Content tasks (08-10-2026):** the tools help a little, not enough to justify them on speed or cost for flows like
@@ -172,6 +192,7 @@ savings but cost 1.7 to 2.5 times as much, because every tool definition sits in
 On Forms that's still a little cheaper than clicking, and much cheaper on building a form; on content it's more
 expensive than clicking. Trimming descriptions or snapshots didn't change that. Today, an agent with a generic browser
 is cheapest using the page API's lazy `list()`; WebMCP's eager tool list pays off only where the tools save many turns.
+Client-side tool search and tools that do a whole job each helped one task and not the others.
 
 ## Environment finding: SQLite hangs under repeated test load
 

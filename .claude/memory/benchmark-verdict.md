@@ -23,6 +23,11 @@ more than clicking on content. The cause is the eager tool list (every definitio
 plus cache rewrites when the list changes). First-sentence descriptions (23d45ed) and `--snapshot-mode none` didn't
 help. Don't pitch WebMCP as cheaper for agents; the lazy page API is. Fewer tools at once or lazy-loading clients would.
 
+**Round 3 (09-10-2026):** Claude Code tool search cut WebMCP's cost on content (-24%) but raised it on Forms (extra
+lookup turns). Whole-job tools (`umbraco_create_document`, `forms_add_fields`) gave the fastest content run (6 turns)
+when used, but agents picked the step tools 4 times in 6, and Forms turns hardly moved: a floor of 8-10 turns goes on
+finding, opening, saving and checking. Next lever is fewer discovery turns, not bigger edit tools.
+
 **How to apply (content flows):** don't claim WebMCP makes testing or agents faster on simple flows; say agents get around the backoffice by name for
 slightly fewer turns. Pitch the tools on the Copilot bridge (safe, approved actions for editors) and on working with
 packages without package-specific code. If testing resumes, add long or fragile flows (Forms' nested modals, block
