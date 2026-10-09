@@ -7,7 +7,8 @@
 // has to work through the UI; "page-api" is told about window.__umbWebMcp. "webmcp" runs Google Chrome with WebMCP
 // switched on, so Playwright MCP gives the agent the tools the page registers as its own webmcp_* tools; it can't run
 // scripts in the page either, so it can't reach the page API. "webmcp-no-snapshots" is "webmcp" with Playwright MCP's
-// --snapshot-mode none, so actions don't return a page snapshot or refresh the tool list. Each run is arranged, verified and cleaned
+// --snapshot-mode none, so actions don't return a page snapshot or refresh the tool list. "webmcp-tool-search" is
+// "webmcp" with Claude Code's tool search on, so tool definitions stay out of the context until the agent looks them up. Each run is arranged, verified and cleaned
 // up through the Management API (tests/agent/fixture.spec.ts). The result, with a count of the tools called, is appended
 // to results/agent.jsonl, and the full transcript is saved in results/transcripts.
 //
@@ -44,8 +45,11 @@ const VARIANT_PROMPTS = {
 		'The backoffice registers WebMCP tools for agents. They are listed in each page snapshot, and you can call them as your own tools named webmcp_<tool name>; prefer them to clicking. Tools that open a workspace return workspaceTools: the tools that only exist while it is open, which appear after the next snapshot.',
 };
 VARIANT_PROMPTS['webmcp-no-snapshots'] = `${VARIANT_PROMPTS.webmcp} Actions don't return a snapshot, so call browser_snapshot when you need to see the page.`;
+VARIANT_PROMPTS['webmcp-tool-search'] = VARIANT_PROMPTS.webmcp;
 // Variants that may not run scripts in the page
-const NO_PAGE_SCRIPTS = ['playwright', 'webmcp', 'webmcp-no-snapshots'];
+const NO_PAGE_SCRIPTS = ['playwright', 'webmcp', 'webmcp-no-snapshots', 'webmcp-tool-search'];
+// Variants that defer MCP tool definitions until the agent searches for them
+const TOOL_SEARCH = ['webmcp-tool-search'];
 const PAGE_SCRIPT_TOOLS = ['mcp__playwright__browser_evaluate', 'mcp__playwright__browser_run_code_unsafe'];
 
 mkdirSync(resultsDir, { recursive: true });
@@ -170,13 +174,13 @@ function runAgent(benchCase, variant, transcriptPath) {
 		'--max-budget-usd',
 		maxUsd,
 		'--mcp-config',
-		mcpConfigs[variant] ?? mcpConfigs.default,
+		mcpConfigs[variant] ?? (variant.startsWith('webmcp') ? mcpConfigs.webmcp : mcpConfigs.default),
 		'--strict-mcp-config',
 		'--setting-sources',
 		'local',
 		'--no-session-persistence',
 		'--tools',
-		'',
+		TOOL_SEARCH.includes(variant) ? 'ToolSearch' : '',
 		'--allowedTools',
 		'mcp__playwright',
 	];
@@ -185,6 +189,7 @@ function runAgent(benchCase, variant, transcriptPath) {
 	const started = Date.now();
 	const result = spawnSync('claude', claudeArgs, {
 		cwd: agentCwd,
+		env: TOOL_SEARCH.includes(variant) ? { ...process.env, ENABLE_TOOL_SEARCH: 'true' } : process.env,
 		input: prompt,
 		encoding: 'utf8',
 		timeout: 10 * 60_000,
