@@ -134,6 +134,40 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				},
 			},
 			{
+				name: 'forms_set_caption',
+				title: 'Set a page or group caption',
+				description: 'Sets the caption of a page or a group of the open form, by its id. Does not save.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						id: { type: 'string', description: 'A page or group id, from forms_get_form_design.' },
+						caption: { type: 'string' },
+					},
+					required: ['id', 'caption'],
+				},
+				execute: async ({ id, caption }) => {
+					const form = this.#form();
+					let found = false;
+					const pages = form.pages.map((page) => {
+						if (page.id === id) {
+							found = true;
+							return { ...page, caption };
+						}
+						return {
+							...page,
+							fieldSets: page.fieldSets.map((fieldset) => {
+								if (fieldset.id !== id) return fieldset;
+								found = true;
+								return { ...fieldset, caption };
+							}),
+						};
+					});
+					if (!found) throw new Error(`No page or group "${id}". Use forms_get_form_design.`);
+					this.#setPages(pages);
+					return { id, caption };
+				},
+			},
+			{
 				name: 'forms_add_page',
 				title: 'Add a form page',
 				description:
