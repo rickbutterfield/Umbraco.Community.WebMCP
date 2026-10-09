@@ -144,8 +144,9 @@ trash a page) with and without the page API. Full numbers and method are in
   (1 run in 10 failed), 10 s waits when the backoffice reused an open workspace, and agents guessing parameter names
   from a short tool list. Before those fixes, agents with the page API were slower and more expensive than clicking.
 
-**Verdict:** on short, well-trodden flows the tools don't justify themselves on speed or cost. The untested cases
-where they should matter are long or fragile flows (Forms' nested modals, block editors, pickers, hover menus) and
-packages an agent hasn't seen. Testing was parked there on 08-10-2026; if it resumes, add those flows to the agent
-benchmark first. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
+**Verdict:** on short, well-trodden flows the tools don't justify themselves on speed or cost. On a complex editor
+they do: on 09-10-2026, with a small example Forms toolset, agents building and extending forms needed half the turns
+and half the cost of clicking, and a fifth of the turns to build a form from scratch. The generic tools alone were about
+even on Forms' modals and worse on its "Move to" picker, because setting a picker's value doesn't update its selection.
+So the gain comes from product toolsets for complex editors; a picker tool is the main gap in the generic ones. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
 named tools with approval on consequential calls are safer for editors than an agent clicking, whatever the speed.

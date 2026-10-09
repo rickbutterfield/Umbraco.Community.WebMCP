@@ -58,14 +58,53 @@ The benchmark found the problems that most of the gain came from fixing.
 The `ui` and `playwright` numbers moved by 10–15% between rounds with no code change, so differences of a few per
 cent are noise.
 
+## Umbraco Forms: four tasks, 5 runs each per variant (09-10-2026)
+
+Run on the test site upgraded to CMS 18.2.1 and Forms 18.2.1. The generic tools can open, save, delete and move a form,
+but not edit its design, so the page API agent also had the example Forms toolset
+(`examples/Umbraco.WebMCP.TestSite/wwwroot/App_Plugins/WebMcpFormsExample`): a `webMcpWorkspaceToolset` with
+`forms_get_form_design`, `forms_list_field_types`, `forms_set_form_name`, `forms_add_page`, `forms_add_group` and
+`forms_add_field`, the kind of toolset Forms itself could ship.
+
+| Variant | Runs | Pass rate | Median turns | Median time (s) | Mean cost (USD) |
+|---|---|---|---|---|---|
+| `page-api` (with the Forms toolset) | 20 | 100% | 11 | 41 | 0.084 |
+| `playwright` (UI only) | 19 | 100% | 20 | 52 | 0.168 |
+
+One `playwright` run is left out: it hit the runner's 10-minute timeout while the machine slept overnight, not because
+the agent failed.
+
+| Case | Needs | Turns (page API / UI) | Time, s | Median tokens | Cost, USD |
+|---|---|---|---|---|---|
+| forms-build: a blank form with a mandatory short answer, a long answer and a dropdown with three options | The Forms toolset | 11 / 51 | 34 / 97 | 168k / 785k | 0.087 / 0.358 |
+| forms-pages: a second page with a captioned group and a question | The Forms toolset | 10 / 21 | 34 / 55 | 145k / 343k | 0.076 / 0.158 |
+| forms-delete: delete a form through its confirmation | Generic tools | 12 / 15 | 41 / 51 | 175k / 251k | 0.073 / 0.108 |
+| forms-move: move a form into a folder | Generic tools | 13 / 12 | 44 / 35 | 203k / 144k | 0.101 / 0.085 |
+
+- **The form designer is where the tools pay off.** Building a form took a fifth of the turns, a third of the time and
+  a quarter of the cost; adding a page, half. Clicking through the designer means a field-type picker, a field
+  settings panel and a dropdown option editor for every question, each needing snapshots to find.
+- **Generic tools on Forms' own modals are about even.** Deleting through the confirmation was a little cheaper with
+  the tools.
+- **Picker modals are a gap.** Moving a form was worse with the page API: `umbraco_set_modal_value` changed the "Move
+  to" sidebar's value but not its selection, so the Move button stayed disabled and the agent fell back to clicking.
+  Driving pickers needs a tool that selects through the picker's own selection manager.
+- **Toolset design matters.** In a trial run, `forms_add_page` couldn't caption the group it creates, so the agent
+  typed into the designer (20 turns); with a `groupCaption` parameter, 10.
+
 ## Verdict
 
-The tools help a little, not enough to justify them on speed or cost for flows like these. Scripted tests gain a
+**Content tasks (08-10-2026):** the tools help a little, not enough to justify them on speed or cost for flows like
+these. Scripted tests gain a
 fraction of a second per test; agents take about 20% fewer turns and cost about 10% less, within the run-to-run noise
 of a study this size. Reliability doesn't differ: these tasks are short and the CMS test helpers already make clicking
-reliable. The gain grew with path length (the recycle bin's menu and confirmation), so long or fragile flows (Forms'
-nested modals, block editors, pickers) are where a real difference would show. Testing was parked on 08-10-2026; if it
-resumes, add those flows as agent cases first (about $3-5 a round).
+reliable. The gain grew with path length (the recycle bin's menu and confirmation).
+
+**Forms (09-10-2026):** on a complex editor the difference is large: half the turns and half the cost overall, and on
+building a form a fifth of the turns and a quarter of the cost. That gain needs a product toolset (here about 200
+lines of plain JavaScript in the product's own package); the generic tools alone were about even on Forms' modals and
+worse on its picker. So the case for WebMCP is product toolsets for complex editors, plus a picker tool, rather than
+generic navigation.
 
 ## Environment finding: SQLite hangs under repeated test load
 

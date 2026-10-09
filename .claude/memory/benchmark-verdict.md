@@ -1,6 +1,6 @@
 ---
 name: benchmark-verdict
-description: The 08-10-2026 benchmark found WebMCP tools give only small speed/cost gains on short content flows; testing parked, value is the Copilot bridge
+description: Benchmarks - small gains on short content flows (08-10-2026), but half the turns and cost on the Forms designer with a product toolset (09-10-2026)
 type: decision
 ---
 
@@ -12,7 +12,12 @@ took about 20% fewer turns and cost about 10% less at the same speed. Rick decid
 rounds with no code change), and the content tasks are short paths that the CMS test helpers already make reliable.
 The useful output was the bugs the benchmark found, all fixed (see `benchmarks/RESULTS.md`, "How the numbers moved").
 
-**How to apply:** don't claim WebMCP makes testing or agents faster; say agents get around the backoffice by name for
+**Update 09-10-2026:** on Forms 18.2.1, with the example Forms toolset in the test site, agents needed half the turns
+and cost (11 vs 20 turns, $0.084 vs $0.168), and building a form a fifth of the turns (11 vs 51). The generic tools
+alone were even on Forms' modals and worse on its picker. So the testing case is real for complex editors that ship a
+toolset; it isn't for simple flows.
+
+**How to apply (content flows):** don't claim WebMCP makes testing or agents faster on simple flows; say agents get around the backoffice by name for
 slightly fewer turns. Pitch the tools on the Copilot bridge (safe, approved actions for editors) and on working with
 packages without package-specific code. If testing resumes, add long or fragile flows (Forms' nested modals, block
 editors, pickers) to `benchmarks/agent/cases.json` before anything else, and run the test site without SQLite's

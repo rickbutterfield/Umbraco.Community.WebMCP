@@ -11,7 +11,7 @@ skips the buttons, modals and routing a user would go through.
 
 ## Benchmarks
 
-Measured on 08-10-2026 on one machine; see [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test
+Measured on 08-10-2026 (content) and 09-10-2026 (Forms, on CMS and Forms 18.2.1) on one machine; see [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test
 numbers, how the numbers moved as the tools improved, and caveats.
 
 | What | Variant | Pass rate | Result |
@@ -21,9 +21,12 @@ numbers, how the numbers moved as the tools improved, and caveats.
 | | Everything through the page API (no longer tests the UI) | 50/50 | 3.03 s (−21%) |
 | Four content tasks given to an agent (Claude Sonnet, Playwright MCP), 5 runs each | Clicking only | 20/20 | 10 turns, 27 s, $0.054 |
 | | Told about the page API | 20/20 | 8 turns, 29 s, $0.049 |
+| Four Umbraco Forms tasks given to an agent, 5 runs each | Clicking only | 19/19 | 20 turns, 52 s, $0.168 |
+| | Told about the page API, with an example Forms toolset | 20/20 | 11 turns, 41 s, $0.084 |
 
-The page API makes scripted tests a little faster and agents about 20% more economical in turns and 10% in cost, at
-about the same speed. The gain is largest where the UI path is long.
+On simple content tasks the page API makes scripted tests a little faster and agents about 20% more economical. On the
+Forms designer, with a small Forms toolset, agents need half the turns and half the cost, and building a form takes a
+fifth of the turns. A complex editor plus a product toolset is where the tools pay off.
 
 ## Documentation
 
