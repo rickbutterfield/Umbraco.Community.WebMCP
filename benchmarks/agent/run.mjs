@@ -6,7 +6,8 @@
 // "playwright" can't run scripts in the page (browser_evaluate and browser_run_code_unsafe are disallowed), so it
 // has to work through the UI; "page-api" is told about window.__umbWebMcp. "webmcp" runs Google Chrome with WebMCP
 // switched on, so Playwright MCP gives the agent the tools the page registers as its own webmcp_* tools; it can't run
-// scripts in the page either, so it can't reach the page API. Each run is arranged, verified and cleaned
+// scripts in the page either, so it can't reach the page API. "webmcp-no-snapshots" is "webmcp" with Playwright MCP's
+// --snapshot-mode none, so actions don't return a page snapshot or refresh the tool list. Each run is arranged, verified and cleaned
 // up through the Management API (tests/agent/fixture.spec.ts). The result, with a count of the tools called, is appended
 // to results/agent.jsonl, and the full transcript is saved in results/transcripts.
 //
@@ -42,8 +43,9 @@ const VARIANT_PROMPTS = {
 	webmcp:
 		'The backoffice registers WebMCP tools for agents. They are listed in each page snapshot, and you can call them as your own tools named webmcp_<tool name>; prefer them to clicking. Tools that open a workspace return workspaceTools: the tools that only exist while it is open, which appear after the next snapshot.',
 };
+VARIANT_PROMPTS['webmcp-no-snapshots'] = `${VARIANT_PROMPTS.webmcp} Actions don't return a snapshot, so call browser_snapshot when you need to see the page.`;
 // Variants that may not run scripts in the page
-const NO_PAGE_SCRIPTS = ['playwright', 'webmcp'];
+const NO_PAGE_SCRIPTS = ['playwright', 'webmcp', 'webmcp-no-snapshots'];
 const PAGE_SCRIPT_TOOLS = ['mcp__playwright__browser_evaluate', 'mcp__playwright__browser_run_code_unsafe'];
 
 mkdirSync(resultsDir, { recursive: true });
@@ -85,6 +87,14 @@ writeFileSync(
 const mcpConfigs = {
 	default: writeMcpConfig(path.join(resultsDir, 'mcp.json')),
 	webmcp: writeMcpConfig(path.join(resultsDir, 'mcp-webmcp.json'), ['--browser', 'chrome', '--config', chromeConfig]),
+	'webmcp-no-snapshots': writeMcpConfig(path.join(resultsDir, 'mcp-webmcp-no-snapshots.json'), [
+		'--browser',
+		'chrome',
+		'--config',
+		chromeConfig,
+		'--snapshot-mode',
+		'none',
+	]),
 };
 
 function playwright(...playwrightArgs) {

@@ -115,6 +115,44 @@ example Forms toolset for the designer.
 - 86 of 90 passed. The four failures (one `ui`, two `hybrid`, one `tools`) trace to the test site's SQLite database,
   which logged "database is locked" 22 times during the run: 500 errors from the Forms API, and a timeout.
 
+## Real WebMCP: the same tasks through Chrome's WebMCP (09-10-2026)
+
+Every earlier `page-api` run reached the tools through `window.__umbWebMcp` and `browser_evaluate`, never through
+WebMCP itself. The `webmcp` variants run Google Chrome 154 with `--enable-features=WebMCP,WebMCPTesting`, and
+Playwright MCP 0.0.83 (which supports WebMCP by default) gives the agent each tool the page registers as its own MCP
+tool, named `webmcp_<tool name>`, and lists them in each page snapshot. Page scripts are disallowed, so the page API is
+out of reach. CMS and Forms 18.2.1; the content baselines below were measured on 18.1.
+
+**Round 1, full descriptions** (19 runs, at least 2 of each task, stopped early once the pattern was clear):
+
+| Tasks | Clicking only | Page API | WebMCP | Passed |
+|---|---|---|---|---|
+| 4 content tasks | 10 turns, 27 s, $0.054 | 8 turns, 29 s, $0.049 | 10 turns, 29 s, $0.128 | 11/11 |
+| 4 Forms tasks | 20 turns, 52 s, $0.168 | 11 turns, 41 s, $0.084 | 13 turns, 36 s, $0.141 | 8/8 |
+
+**Round 2, trying to cut the cost** (three tasks, 3 runs each, all 18 passed). Mean cost per run:
+
+| Task | Clicking only | Page API | WebMCP, full descriptions | WebMCP, first sentence only | Same, `--snapshot-mode none` |
+|---|---|---|---|---|---|
+| Create content | $0.061 | $0.053 | $0.136 | $0.127 | $0.127 |
+| Build a form | $0.358 | $0.087 | $0.163 | $0.171 | $0.174 |
+| Add a page to a form | $0.158 | $0.076 | $0.154 | $0.126 | $0.165 |
+
+- **The tools work through real WebMCP.** Every run passed, the agent called them as native tools, and the workspace
+  tools appeared once a workspace opened (19 tools, then 27 to 29). Speed and turns match the page API.
+- **It costs about 1.7 to 2.5 times the page API**, more than clicking on content tasks. Per-turn usage shows why: once
+  the first snapshot brings the tools in, the agent's context grows from about 10k to 22k tokens, and to about 30k when a
+  workspace adds its tools, and every later turn reads all of it. Each change to the tool list also writes the cached
+  prompt again (cache writes of 20-28k tokens a run against 5-10k for the page API). Playwright MCP prefixes each tool
+  description with a safety note of about 170 characters, and includes each full input schema.
+- **Short descriptions barely help** (first sentence only, from commit 23d45ed): within the noise. The tool
+  definitions and schemas, not the descriptions, are the bulk.
+- **`--snapshot-mode none` makes it worse**: actions already save their snapshot to a file, so it saves little, and
+  without a refresh after each action the agent takes more explicit snapshots to find the workspace's tools.
+- **So the cost is the eager tool list.** WebMCP puts every tool's definition into the agent's context on every turn;
+  the page API's `list()` gives one-sentence summaries once and the agent asks for more only when it needs it. Fewer
+  tools exposed at once, or a client that loads tool definitions lazily, would close the gap; the descriptions won't.
+
 ## Verdict
 
 **Content tasks (08-10-2026):** the tools help a little, not enough to justify them on speed or cost for flows like
@@ -128,6 +166,12 @@ building a form a fifth of the turns and a quarter of the cost. That gain needs 
 lines of plain JavaScript in the product's own package); the generic tools alone were about even on Forms' modals and
 worse on its picker. So the case for WebMCP is product toolsets for complex editors, plus a picker tool, rather than
 generic navigation.
+
+**Real WebMCP (09-10-2026):** through Chrome's WebMCP and Playwright MCP, the tools keep the page API's speed and turn
+savings but cost 1.7 to 2.5 times as much, because every tool definition sits in the agent's context on every turn.
+On Forms that's still a little cheaper than clicking, and much cheaper on building a form; on content it's more
+expensive than clicking. Trimming descriptions or snapshots didn't change that. Today, an agent with a generic browser
+is cheapest using the page API's lazy `list()`; WebMCP's eager tool list pays off only where the tools save many turns.
 
 ## Environment finding: SQLite hangs under repeated test load
 

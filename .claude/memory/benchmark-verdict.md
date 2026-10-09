@@ -17,6 +17,12 @@ and cost (11 vs 20 turns, $0.084 vs $0.168), and building a form a fifth of the 
 alone were even on Forms' modals and worse on its picker. So the testing case is real for complex editors that ship a
 toolset; it isn't for simple flows.
 
+**Update 09-10-2026, real WebMCP:** through Chrome 154's WebMCP and Playwright MCP 0.0.83 (which exposes page tools
+as `webmcp_*` MCP tools by default), all runs passed with page-API speed and turns but 1.7-2.5x the page API's cost,
+more than clicking on content. The cause is the eager tool list (every definition and schema in context every turn,
+plus cache rewrites when the list changes). First-sentence descriptions (23d45ed) and `--snapshot-mode none` didn't
+help. Don't pitch WebMCP as cheaper for agents; the lazy page API is. Fewer tools at once or lazy-loading clients would.
+
 **How to apply (content flows):** don't claim WebMCP makes testing or agents faster on simple flows; say agents get around the backoffice by name for
 slightly fewer turns. Pitch the tools on the Copilot bridge (safe, approved actions for editors) and on working with
 packages without package-specific code. If testing resumes, add long or fragile flows (Forms' nested modals, block

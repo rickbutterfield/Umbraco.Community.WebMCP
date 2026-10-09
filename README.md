@@ -33,9 +33,19 @@ improved, and caveats.
 | | Time (median) | 52 s | 41 s | −21% |
 | | Cost (mean) | $0.168 | $0.084 | −50% |
 
+**Through real WebMCP** (Chrome 154 with WebMCP on; Playwright MCP gives the agent the page's tools as its own): about 2
+runs of each task, 19 in all, every one passed.
+
+| Tasks | Playwright only, clicking | Playwright + page API | Playwright + WebMCP tools |
+|---|---|---|---|
+| 4 content tasks | 10 turns, 27 s, $0.054 | 8 turns, 29 s, $0.049 | 10 turns, 29 s, $0.128 |
+| 4 Forms tasks | 20 turns, 52 s, $0.168 | 11 turns, 41 s, $0.084 | 13 turns, 36 s, $0.141 |
+
 Every approach passed nearly every run (the few failures came from the test site's SQLite database, not the
 approach). On simple content tasks the page API saves a little; on a complex editor like the Forms designer, with a
-small product toolset, it halves an agent's turns and cost and more than halves a scripted test's time.
+small product toolset, it halves an agent's turns and cost and more than halves a scripted test's time. Through real
+WebMCP the tools are as fast but cost far more, because every tool definition stays in the agent's context on every
+turn; shortening descriptions or snapshots didn't change that.
 
 ## Documentation
 
