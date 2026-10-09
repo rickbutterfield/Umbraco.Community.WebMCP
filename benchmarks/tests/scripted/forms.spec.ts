@@ -47,13 +47,15 @@ async function clickConfirmTrash(page: Page) {
 const uiSteps = (ui: UiHelpers, page: Page): Steps => ({
 	async openNewForm() {
 		await goToForms(ui);
-		// On Forms 18.2 the Forms heading in the sidebar has its own Create button, which opens the create options. If
-		// that doesn't open (it is flaky headless, as in Forms' own suite), fall back to the create workspace's URL and
-		// record it, because the fallback is part of what clicking costs.
+		// On Forms 18.2 the Forms heading in the sidebar has a Create button that is only revealed on hover and never
+		// counts as clickable, so it needs a forced click (as Forms' own suite uses); it opens a Create dialog. If that
+		// doesn't open, fall back to the create workspace's URL and record it, because the fallback is part of what
+		// clicking costs.
 		let opened = false;
 		for (let attempt = 0; attempt < 2 && !opened; attempt++) {
 			try {
-				await page.getByRole('button', { name: 'Create', exact: true }).first().click({ timeout: 4000 });
+				await page.getByRole('heading', { name: 'Forms', level: 3 }).hover();
+				await page.getByRole('button', { name: 'Create', exact: true }).first().click({ force: true, timeout: 4000 });
 				await page.getByRole('link', { name: /New Form/ }).click({ timeout: 4000 });
 				opened = true;
 			} catch {

@@ -92,6 +92,29 @@ the agent failed.
 - **Toolset design matters.** In a trial run, `forms_add_page` couldn't caption the group it creates, so the agent
   typed into the designer (20 turns); with a `groupCaption` parameter, 10.
 
+## Scripted Forms tests: three tests, 10 runs each per variant (09-10-2026)
+
+`tests/scripted/forms.spec.ts`: tests modelled on Forms' own acceptance suite (create a form with a short answer
+field, delete a form, create a form with two pages and groups), with our own steps. The `tools` variant uses the
+example Forms toolset for the designer.
+
+| Test | `ui` (ms) | `hybrid` (ms) | `tools` (ms) |
+|---|---|---|---|
+| Create a form with a short answer field | 8,267 | 4,751 | 2,717 |
+| Create a form with two pages and groups | 8,919 | 5,076 | 3,106 |
+| Delete a form | 2,205 | 3,882 | 4,041 |
+| **All three (median Act)** | **8,235** | **4,621 (−44%)** | **3,352 (−59%)** |
+
+- **The designer is where the time goes:** each question means the Add question button, a name, the answer type
+  picker and Submit, and `hybrid` saves about 3.5 s a test just by opening the create workspace through a tool.
+- **Deleting is faster by clicking:** the tree's actions menu and the confirmation are two quick clicks, while the tool
+  path searches, builds the entity actions and waits for the modal to close and for notifications.
+- **Forms 18.2.1's Create button needs a forced click.** It sits next to the Forms heading and is only revealed on
+  hover, so Playwright never sees it as clickable; Forms' own suite forces clicks for the same reason. Before that
+  was found, every `ui` run fell back to the create URL.
+- 86 of 90 passed. The four failures (one `ui`, two `hybrid`, one `tools`) trace to the test site's SQLite database,
+  which logged "database is locked" 22 times during the run: 500 errors from the Forms API, and a timeout.
+
 ## Verdict
 
 **Content tasks (08-10-2026):** the tools help a little, not enough to justify them on speed or cost for flows like

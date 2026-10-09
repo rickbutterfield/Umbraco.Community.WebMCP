@@ -11,22 +11,31 @@ skips the buttons, modals and routing a user would go through.
 
 ## Benchmarks
 
-Measured on 08-10-2026 (content) and 09-10-2026 (Forms, on CMS and Forms 18.2.1) on one machine; see [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test
-numbers, how the numbers moved as the tools improved, and caveats.
+Measured on 08-10-2026 (content, CMS 18.1) and 09-10-2026 (Umbraco Forms, CMS and Forms 18.2.1) on one machine. See
+[benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test numbers, how the numbers moved as the tools
+improved, and caveats.
 
-| What | Variant | Pass rate | Result |
+**Scripted Playwright tests**: median time of the step under test, 10 runs of each test.
+
+| Tests | Playwright, clicking | Page API to navigate, clicks for the step under test | Page API only (no longer tests the UI) |
 |---|---|---|---|
-| Five CMS content acceptance tests, 10 runs each, median time of the step under test | Clicks, as in the CMS tests | 50/50 | 3.84 s |
-| | Page API navigates, clicks for the step under test | 50/50 | 3.64 s (−5%) |
-| | Everything through the page API (no longer tests the UI) | 50/50 | 3.03 s (−21%) |
-| Four content tasks given to an agent (Claude Sonnet, Playwright MCP), 5 runs each | Clicking only | 20/20 | 10 turns, 27 s, $0.054 |
-| | Told about the page API | 20/20 | 8 turns, 29 s, $0.049 |
-| Four Umbraco Forms tasks given to an agent, 5 runs each | Clicking only | 19/19 | 20 turns, 52 s, $0.168 |
-| | Told about the page API, with an example Forms toolset | 20/20 | 11 turns, 41 s, $0.084 |
+| 5 CMS content tests | 3.84 s | 3.64 s (−5%) | 3.03 s (−21%) |
+| 3 Forms tests | 8.24 s | 4.62 s (−44%) | 3.35 s (−59%) |
 
-On simple content tasks the page API makes scripted tests a little faster and agents about 20% more economical. On the
-Forms designer, with a small Forms toolset, agents need half the turns and half the cost, and building a form takes a
-fifth of the turns. A complex editor plus a product toolset is where the tools pay off.
+**An agent doing a task** (Claude Sonnet through Playwright MCP): 5 runs of each task.
+
+| Tasks | Measure | Playwright only, clicking | Playwright + page API | Difference |
+|---|---|---|---|---|
+| 4 content tasks | Turns (median) | 10 | 8 | −20% |
+| | Time (median) | 27 s | 29 s | +7% |
+| | Cost (mean) | $0.054 | $0.049 | −9% |
+| 4 Forms tasks (+ the example Forms toolset) | Turns (median) | 20 | 11 | −45% |
+| | Time (median) | 52 s | 41 s | −21% |
+| | Cost (mean) | $0.168 | $0.084 | −50% |
+
+Every approach passed nearly every run (the few failures came from the test site's SQLite database, not the
+approach). On simple content tasks the page API saves a little; on a complex editor like the Forms designer, with a
+small product toolset, it halves an agent's turns and cost and more than halves a scripted test's time.
 
 ## Documentation
 

@@ -44,6 +44,7 @@ function summariseScripted() {
 						passed: result.status === 'passed',
 						durationMs: result.duration,
 						actMs: result.status === 'passed' && act ? Number(act.description) : null,
+						fallback: (result.annotations ?? []).some((a) => a.type === 'fallback'),
 						error: result.status === 'passed' ? null : (result.error?.message ?? '').split('\n')[0],
 					});
 				}
@@ -54,13 +55,13 @@ function summariseScripted() {
 
 	lines.push('## Scripted: the same tests, three ways', '');
 	lines.push('Act time is the Act step only, for passing runs. Arrange and clean-up go through the API in every variant.', '');
-	lines.push('| Test | Variant | Runs | Passed | Median Act (ms) | p90 Act (ms) | Median test (ms) |');
-	lines.push('|---|---|---|---|---|---|---|');
+	lines.push('| Test | Variant | Runs | Passed | Median Act (ms) | p90 Act (ms) | Median test (ms) | UI fallbacks |');
+	lines.push('|---|---|---|---|---|---|---|---|');
 	for (const [key, group] of groupBy(runs, (r) => `${r.test}|${r.variant}`)) {
 		const [test, variant] = key.split('|');
 		const acts = group.map((r) => r.actMs).filter((v) => v !== null);
 		lines.push(
-			`| ${test} | ${variant} | ${group.length} | ${group.filter((r) => r.passed).length} | ${format(median(acts))} | ${format(percentile(acts, 90))} | ${format(median(group.map((r) => r.durationMs)))} |`,
+			`| ${test} | ${variant} | ${group.length} | ${group.filter((r) => r.passed).length} | ${format(median(acts))} | ${format(percentile(acts, 90))} | ${format(median(group.map((r) => r.durationMs)))} | ${group.filter((r) => r.fallback).length} |`,
 		);
 	}
 	lines.push('', '| Variant | Runs | Pass rate | Median Act (ms) |', '|---|---|---|---|');
