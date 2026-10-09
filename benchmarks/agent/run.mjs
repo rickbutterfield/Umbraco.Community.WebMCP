@@ -1,10 +1,12 @@
-// Runs each agent case (cases.json) with and without the page API and records what each run cost.
+// Runs each agent case (cases.json) with and without the tools and records what each run cost.
 //
-//   node agent/run.mjs [--runs 5] [--cases create-content,publish-content] [--variants page-api,playwright]
+//   node agent/run.mjs [--runs 5] [--cases create-content,publish-content] [--variants page-api,playwright,webmcp]
 //
-// Both variants drive the same headless browser through Playwright MCP, logged in from playwright/.auth/user.json.
+// Every variant drives a headless browser through Playwright MCP, logged in from playwright/.auth/user.json.
 // "playwright" can't run scripts in the page (browser_evaluate and browser_run_code_unsafe are disallowed), so it
-// has to work through the UI; "page-api" is told about window.__umbWebMcp. Each run is arranged, verified and cleaned
+// has to work through the UI; "page-api" is told about window.__umbWebMcp. "webmcp" runs Google Chrome with WebMCP
+// switched on, so Playwright MCP gives the agent the tools the page registers as its own webmcp_* tools; it can't run
+// scripts in the page either, so it can't reach the page API. Each run is arranged, verified and cleaned
 // up through the Management API (tests/agent/fixture.spec.ts). The result, with a count of the tools called, is appended
 // to results/agent.jsonl, and the full transcript is saved in results/transcripts.
 //
@@ -37,7 +39,11 @@ const VARIANT_PROMPTS = {
 	'page-api':
 		'The backoffice exposes named tools for agents. In the page, window.__umbWebMcp.list() lists them with a one-sentence summary each, window.__umbWebMcp.describe(name) returns the full description and input schema of one tool, and await window.__umbWebMcp.call(name, input) calls one. Call them with browser_evaluate, and prefer them to clicking. Tools that open a workspace return workspaceTools: the tools that only exist while it is open.',
 	playwright: 'Work through the UI with the Playwright browser tools.',
+	webmcp:
+		'The backoffice registers WebMCP tools for agents. They are listed in each page snapshot, and you can call them as your own tools named webmcp_<tool name>; prefer them to clicking. Tools that open a workspace return workspaceTools: the tools that only exist while it is open, which appear after the next snapshot.',
 };
+// Variants that may not run scripts in the page
+const NO_PAGE_SCRIPTS = ['playwright', 'webmcp'];
 const PAGE_SCRIPT_TOOLS = ['mcp__playwright__browser_evaluate', 'mcp__playwright__browser_run_code_unsafe'];
 
 mkdirSync(resultsDir, { recursive: true });
@@ -45,28 +51,41 @@ mkdirSync(resultsDir, { recursive: true });
 const agentCwd = path.join(tmpdir(), 'umbraco-webmcp-bench');
 mkdirSync(agentCwd, { recursive: true });
 
-const mcpConfig = path.join(resultsDir, 'mcp.json');
 const npx = process.platform === 'win32' ? { command: 'cmd', args: ['/c', 'npx'] } : { command: 'npx', args: [] };
-writeFileSync(
-	mcpConfig,
-	JSON.stringify({
-		mcpServers: {
-			playwright: {
-				command: npx.command,
-				args: [
-					...npx.args,
-					'-y',
-					'@playwright/mcp@0.0.83',
-					'--headless',
-					'--isolated',
-					'--ignore-https-errors',
-					'--storage-state',
-					storageState,
-				],
+function writeMcpConfig(file, extraArgs = []) {
+	writeFileSync(
+		file,
+		JSON.stringify({
+			mcpServers: {
+				playwright: {
+					command: npx.command,
+					args: [
+						...npx.args,
+						'-y',
+						'@playwright/mcp@0.0.83',
+						'--headless',
+						'--isolated',
+						'--ignore-https-errors',
+						'--storage-state',
+						storageState,
+						...extraArgs,
+					],
+				},
 			},
-		},
-	}),
+		}),
+	);
+	return file;
+}
+// WebMCP needs Chrome 149 or later with the feature switched on; Playwright's bundled Chromium is too old
+const chromeConfig = path.join(resultsDir, 'playwright-mcp-webmcp.json');
+writeFileSync(
+	chromeConfig,
+	JSON.stringify({ browser: { launchOptions: { args: ['--enable-features=WebMCP,WebMCPTesting'] } } }),
 );
+const mcpConfigs = {
+	default: writeMcpConfig(path.join(resultsDir, 'mcp.json')),
+	webmcp: writeMcpConfig(path.join(resultsDir, 'mcp-webmcp.json'), ['--browser', 'chrome', '--config', chromeConfig]),
+};
 
 function playwright(...playwrightArgs) {
 	const cli = path.join(root, 'node_modules', '@playwright', 'test', 'cli.js');
@@ -113,7 +132,7 @@ function parseStream(stdout) {
 		if (event.type === 'assistant') {
 			for (const part of event.message?.content ?? []) {
 				if (part.type !== 'tool_use') continue;
-				const name = part.name.replace('mcp__playwright__', '');
+				const name = part.name.replace('mcp__playwright__', '').replace(/^webmcp_/, 'webmcp:');
 				// For page scripts, count the page API call they make, so the transcript shows which tools were used
 				const call = String(part.input?.function ?? part.input?.code ?? '').match(/__umbWebMcp\.(call|list|describe)\(\s*['"]?([a-z_]*)/);
 				const key = call ? `${name}:${call[1]}${call[2] ? `:${call[2]}` : ''}` : name;
@@ -141,7 +160,7 @@ function runAgent(benchCase, variant, transcriptPath) {
 		'--max-budget-usd',
 		maxUsd,
 		'--mcp-config',
-		mcpConfig,
+		mcpConfigs[variant] ?? mcpConfigs.default,
 		'--strict-mcp-config',
 		'--setting-sources',
 		'local',
@@ -151,7 +170,7 @@ function runAgent(benchCase, variant, transcriptPath) {
 		'--allowedTools',
 		'mcp__playwright',
 	];
-	if (variant === 'playwright') claudeArgs.push('--disallowedTools', ...PAGE_SCRIPT_TOOLS);
+	if (NO_PAGE_SCRIPTS.includes(variant)) claudeArgs.push('--disallowedTools', ...PAGE_SCRIPT_TOOLS);
 
 	const started = Date.now();
 	const result = spawnSync('claude', claudeArgs, {
