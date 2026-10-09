@@ -32,6 +32,7 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
+| `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md).
 
@@ -94,7 +95,10 @@ the [README](../README.md#enabling)), so enabling one never enables the other:
 
 - **WebMCP** (`document.modelContext`), for in-browser agents. This needs Chrome 149+ with WebMCP switched on; see
   the [README](../README.md#driving-it-from-claude-code). In Chrome 154, `document.modelContext.getTools()` lists the
-  tools and `executeTool(tool, inputJson)` runs one; `benchmarks/tests/webmcp` uses them.
+  tools and `executeTool(tool, inputJson)` runs one; `benchmarks/tests/webmcp` uses them. WebMCP gets only the
+  first sentence of each tool's description, with the full input schema: clients such as Playwright MCP repeat every
+  description in each page snapshot as well as in the agent's tool list, so full descriptions cost an agent thousands
+  of tokens a turn. `umbraco_get_tool_description` returns the rest.
 - **The page API** (`window.__umbWebMcp`), for page scripts. It works with or without the Chrome flag:
 
   ```js

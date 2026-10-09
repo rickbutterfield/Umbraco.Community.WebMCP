@@ -110,10 +110,19 @@ export function firstSentence(description: string) {
 }
 
 /**
+ * What WebMCP gets as a tool's description: only the first sentence. Clients such as Playwright MCP repeat every tool's
+ * description and input schema in each page snapshot as well as in the agent's tool list, so full descriptions cost an
+ * agent thousands of tokens a turn. The rest is one call away, through umbraco_get_tool_description.
+ */
+function modelContextDescription(tool: UmbWebMcpTool) {
+	return firstSentence(tool.description);
+}
+
+/**
  * What an agent sees of a tool and so what decides whether WebMCP needs the tool registered again.
  */
 function schemaOf(tool: UmbWebMcpTool) {
-	return stableStringify({ description: tool.description, inputSchema: tool.inputSchema ?? null });
+	return stableStringify({ description: modelContextDescription(tool), inputSchema: tool.inputSchema ?? null });
 }
 
 /**
@@ -319,7 +328,7 @@ class UmbWebMcpToolHub {
 				{
 					name: tool.name,
 					title: tool.title,
-					description: tool.description,
+					description: modelContextDescription(tool),
 					inputSchema: tool.inputSchema,
 					annotations: { debugging: true, ...tool.annotations },
 					execute: async (input, client) =>

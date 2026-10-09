@@ -259,6 +259,22 @@ describe('UmbWebMcpToolHub', () => {
 			expect(forName(name)).to.have.length(1);
 		});
 
+		it('registers only the first sentence of the description', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Opens a thing. Then does more.')], new AbortController().signal);
+
+			expect(activeFor(name).map((x) => x.description)).to.deep.equal(['Opens a thing.']);
+			expect(umbWebMcpToolHub.describe(name).description).to.equal('Opens a thing. Then does more.');
+		});
+
+		it('does not register again when only later sentences change', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Opens a thing. Older detail.')], new AbortController().signal);
+			registerTools([describedTool(name, 'Opens a thing. Newer detail.')], new AbortController().signal);
+
+			expect(forName(name)).to.have.length(1);
+		});
+
 		it('registers again with the newer description', () => {
 			const name = uniqueName();
 			registerTools([describedTool(name, 'Older description')], new AbortController().signal);

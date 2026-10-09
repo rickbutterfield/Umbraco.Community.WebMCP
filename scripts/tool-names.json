@@ -3,6 +3,7 @@
 	"umbraco_close_modal",
 	"umbraco_get_document_state",
 	"umbraco_get_location",
+	"umbraco_get_tool_description",
 	"umbraco_get_tree_items",
 	"umbraco_get_workspace_info",
 	"umbraco_list_allowed_document_types",
