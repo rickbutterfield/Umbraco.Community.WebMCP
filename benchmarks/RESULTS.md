@@ -173,6 +173,39 @@ turns and mean cost per run:
   action and checking the result.
 - So per task the turn floor, not the editing, now decides speed, and WebMCP's eager tool list still decides its cost.
 
+**Round 4, run by label and tools only where they apply** (commit 86ed534; four tasks, 3 runs each, all 24 passed).
+`umbraco_run_entity_action`, `umbraco_run_create_option` and `umbraco_run_workspace_action` take a label such as
+Trash, New Form or Save and replace their three `list_*` partners; opening a workspace returns its footer actions; the
+document tools exist only in the Content section (WebMCP lists 15 tools in Forms instead of 21, and 25 instead of about
+29 with a form open).
+
+**All rounds compared**, totals over the three tasks every round ran (create content, build a form, add a page to a
+form); medians of turns and time, mean cost:
+
+| Step | Turns | Time | Cost | Change | Worth it? |
+|---|---|---|---|---|---|
+| Clicking only | 83 | 177 s | $0.577 | baseline | |
+| Page API | 29 | 97 s | $0.216 | -45% time, -63% cost against clicking | Yes |
+| Page API + whole-job tools | 30 | 98 s | $0.234 | about level | No change |
+| Page API + run by label, tools by section | 31 | 105 s | $0.220 | about level | No change |
+| WebMCP, full descriptions | 36 | 99 s | $0.453 | page API's speed, 2.1x its cost | Works, costs more |
+| WebMCP, first sentence only | 37 | 99 s | $0.424 | -6% cost | Neutral, kept |
+| ... with `--snapshot-mode none` | 38 | 97 s | $0.467 | +10% cost | No |
+| ... with Claude Code tool search | 52 | 122 s | $0.432 | +23% time, about level cost | No |
+| ... with whole-job tools | 34 | 93 s | $0.422 | -6% time | Marginal |
+| ... with run by label, tools by section | 30 | 87 s | $0.361 | -12% time, -15% cost on the previous WebMCP | Yes |
+
+Deleting a form (not in every round): clicking 15 turns, $0.108; page API 12, $0.073-0.076; WebMCP 11-13, $0.114.
+Agents still list a menu before running from it, so running by label saved no turn there.
+
+- **The tool layer is the big win**: against clicking, either surface takes half the time, a third of the turns and
+  well under half the cost on these tasks, and up to five times fewer turns on the Forms designer.
+- **WebMCP is now the fastest way through these tasks** (87 s against the page API's 97-105 s) but still costs about
+  1.6 times the page API, because every tool definition is in the agent's context on every turn. Of everything tried,
+  only cutting the number of tools and the turns moved that.
+- **Whole-job tools are used about half the time.** When the agent used `umbraco_create_document`, creating content
+  took 6 turns and 23 s; otherwise it went step by step.
+
 ## Verdict
 
 **Content tasks (08-10-2026):** the tools help a little, not enough to justify them on speed or cost for flows like
@@ -192,7 +225,9 @@ savings but cost 1.7 to 2.5 times as much, because every tool definition sits in
 On Forms that's still a little cheaper than clicking, and much cheaper on building a form; on content it's more
 expensive than clicking. Trimming descriptions or snapshots didn't change that. Today, an agent with a generic browser
 is cheapest using the page API's lazy `list()`; WebMCP's eager tool list pays off only where the tools save many turns.
-Client-side tool search and tools that do a whole job each helped one task and not the others.
+Client-side tool search and tools that do a whole job each helped one task and not the others. Running actions by
+label and registering tools only in their section made WebMCP the fastest approach (87 s against 97 s for the page API
+on three tasks) and cut its cost by 15%, to about 1.6 times the page API's.
 
 ## Environment finding: SQLite hangs under repeated test load
 

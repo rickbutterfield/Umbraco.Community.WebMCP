@@ -45,7 +45,9 @@ Every approach passed nearly every run (the few failures came from the test site
 approach). On simple content tasks the page API saves a little; on a complex editor like the Forms designer, with a
 small product toolset, it halves an agent's turns and cost and more than halves a scripted test's time. Through real
 WebMCP the tools are as fast but cost far more, because every tool definition stays in the agent's context on every
-turn; shortening descriptions or snapshots didn't change that.
+turn; shortening descriptions or snapshots didn't change that. Running actions by label and registering tools only in
+the section they apply to later made WebMCP the fastest approach and cut its cost to about 1.6 times the page API's;
+see [benchmarks/RESULTS.md](benchmarks/RESULTS.md#verdict) for every step.
 
 ## Documentation
 

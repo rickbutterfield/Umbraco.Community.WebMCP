@@ -28,6 +28,10 @@ lookup turns). Whole-job tools (`umbraco_create_document`, `forms_add_fields`) g
 when used, but agents picked the step tools 4 times in 6, and Forms turns hardly moved: a floor of 8-10 turns goes on
 finding, opening, saving and checking. Next lever is fewer discovery turns, not bigger edit tools.
 
+**Round 4 (09-10-2026, 86ed534):** run-by-label tools (no list_* partners) and section-scoped document tools made
+WebMCP fastest (87 s vs page API 97-105 s over three tasks) and 15% cheaper, about 1.6x the page API. Page API itself
+unchanged by B or C. Fewer tools and fewer turns are the only levers that moved WebMCP's cost.
+
 **How to apply (content flows):** don't claim WebMCP makes testing or agents faster on simple flows; say agents get around the backoffice by name for
 slightly fewer turns. Pitch the tools on the Copilot bridge (safe, approved actions for editors) and on working with
 packages without package-specific code. If testing resumes, add long or fragile flows (Forms' nested modals, block
