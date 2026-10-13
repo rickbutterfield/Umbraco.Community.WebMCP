@@ -1,9 +1,12 @@
 import { expect, type Page } from '@playwright/test';
 import { ConstantHelper, test } from '@umbraco-cms/acceptance-test-helpers';
+import path from 'node:path';
 
-// Drives the tools through Chrome's real WebMCP implementation (document.modelContext), not the page API. Needs Google
-// Chrome 149 or later; the project launches it with WebMCP switched on. As of Chrome 154, getTools() returns the
-// registered tools and executeTool(tool, inputJson) runs one and resolves with its JSON result.
+// Drives the tools through WebMCP (document.modelContext), not the page API. The webmcp project uses Chrome's own
+// implementation (Google Chrome 149 or later, launched with WebMCP switched on); webmcp-polyfill runs the same tests in
+// Playwright's bundled Chromium with Google's polyfill. getTools() returns the registered tools and
+// executeTool(tool, input) runs one and resolves with its JSON result. Chrome 155 deprecates passing the input as a
+// JSON string, which Chrome 154 still needs, so callWebMcp tries an object first.
 
 const documentTypeName = 'WebMcpE2eDocumentType';
 const documentName = 'WebMCP end-to-end page';
@@ -22,13 +25,22 @@ async function callWebMcp(page: Page, name: string, input: object = {}) {
 		async ({ name, input }) => {
 			const modelContext = (document as any).modelContext;
 			const tool = (await modelContext.getTools()).find((x: any) => x.name === name);
-			return JSON.parse(await modelContext.executeTool(tool, JSON.stringify(input)));
+			try {
+				return JSON.parse(await modelContext.executeTool(tool, input));
+			} catch (error) {
+				// Only a Chrome that still wants a JSON string; anything else is a real failure
+				if (!String((error as Error)?.message).startsWith('Failed to parse input')) throw error;
+				return JSON.parse(await modelContext.executeTool(tool, JSON.stringify(input)));
+			}
 		},
 		{ name, input },
 	);
 }
 
-test.beforeEach(async ({ umbracoApi, umbracoUi }) => {
+test.beforeEach(async ({ page, umbracoApi, umbracoUi }, testInfo) => {
+	if (testInfo.project.name === 'webmcp-polyfill') {
+		await page.addInitScript({ path: path.join(import.meta.dirname, 'webmcp-polyfill.js') });
+	}
 	await umbracoApi.document.ensureNameNotExists(documentName);
 	await umbracoApi.documentType.ensureNameNotExists(documentTypeName);
 	await umbracoUi.goToBackOffice();
@@ -45,8 +57,9 @@ test('registers the tools with their annotations', async ({ page }) => {
 	const tools = await page.evaluate(async () =>
 		(await (document as any).modelContext.getTools()).map((tool: any) => ({
 			name: tool.name,
-			readOnly: tool.annotations.readOnlyHint,
-			consequential: tool.annotations.consequentialHint,
+			// An omitted hint means false; Chrome fills it in, the polyfill leaves it out
+			readOnly: tool.annotations?.readOnlyHint ?? false,
+			consequential: tool.annotations?.consequentialHint ?? false,
 		})),
 	);
 	const byName = Object.fromEntries(tools.map((tool: any) => [tool.name, tool]));
@@ -61,6 +74,12 @@ test('finds the Forms tree through the extension registry', async ({ page }) => 
 	const result = await callWebMcp(page, 'umbraco_get_tree_items', { treeAlias: 'Forms.Tree.Forms' });
 
 	expect(result.root.entityType).toBe('forms-form-root');
+});
+
+test('returns a tool error to the caller instead of an UnknownError', async ({ page }) => {
+	const result = await callWebMcp(page, 'umbraco_get_tree_items', {});
+
+	expect(result.error).toContain('needs treeAlias');
 });
 
 test('creates and saves a document through WebMCP alone', async ({ page, umbracoApi }) => {

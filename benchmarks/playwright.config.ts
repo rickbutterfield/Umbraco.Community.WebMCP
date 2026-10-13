@@ -44,6 +44,13 @@ export default defineConfig({
 			},
 		},
 		{
+			// The same WebMCP tests in Playwright's bundled Chromium, with Google's WebMCP polyfill instead of Chrome's
+			name: 'webmcp-polyfill',
+			testMatch: 'webmcp/**/*.spec.ts',
+			dependencies: ['setup'],
+			use: { ...devices['Desktop Chrome'], ignoreHTTPSErrors: true, storageState: STORAGE_STATE },
+		},
+		{
 			// Checks the server serves only the enabled surfaces; see tests/surfaces/surfaces.spec.ts
 			name: 'surfaces',
 			testMatch: 'surfaces/**/*.spec.ts',
