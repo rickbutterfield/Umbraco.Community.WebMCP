@@ -90,6 +90,58 @@ echo '{ "browser": { "launchOptions": { "args": ["--enable-features=WebMCP,WebMC
 claude mcp add playwright -- npx -y @playwright/mcp@latest --browser chrome --config playwright-mcp.json
 ```
 
+## Adding your own tools
+
+A package can add tools for its own editors by registering a toolset in its `umbraco-package.json`. It doesn't need
+a dependency on this package: if this package isn't installed, nothing reads the manifest, and the toolset's code is
+never loaded.
+
+- `webMcpToolset`: tools available anywhere in the backoffice while its conditions are met (sections, permissions).
+- `webMcpWorkspaceToolset`: tools available while a matching workspace is open; the class is given the workspace.
+
+```json
+{
+	"type": "webMcpWorkspaceToolset",
+	"alias": "MyShop.WebMcpToolset.Order",
+	"name": "My shop: order tools",
+	"api": "/App_Plugins/MyShop/order.webmcp-toolset.js",
+	"conditions": [{ "alias": "Umb.Condition.WorkspaceAlias", "match": "MyShop.Workspace.Order" }]
+}
+```
+
+The module exports `api`, a class whose `getTools()` returns the tools: each has a `name`, a `description` written for
+an agent, an optional JSON Schema `inputSchema`, optional `annotations`, and an `execute(input, call)` that returns a
+JSON-serialisable result.
+
+```js
+import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
+
+export class MyShopOrderToolset extends UmbControllerBase {
+	constructor(host, workspace) {
+		super(host);
+		this.workspace = workspace;
+	}
+
+	getTools() {
+		return [
+			{
+				name: 'myshop_get_order_status',
+				description: 'Returns the status of the open order.',
+				annotations: { readOnlyHint: true },
+				execute: async () => ({ status: '…' }),
+			},
+		];
+	}
+}
+
+export { MyShopOrderToolset as api };
+```
+
+Prefix tool names with your package (`myshop_…`), and mark any tool that can save, delete, move or publish
+`consequentialHint`. [Adding tools from a package](docs/extending.md) has the full contract and guidelines. The test
+site's [Forms example](examples/Umbraco.Community.WebMCP.TestSite/wwwroot/App_Plugins/WebMcpFormsExample) is a
+complete toolset for the Forms designer in about 300 lines of plain JavaScript, and the one the benchmarks use.
+
 ## Running locally
 
 ```bash
