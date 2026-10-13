@@ -1,6 +1,6 @@
 # Tools
 
-*Last checked: 08-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026). The annotation names come from
+*Last checked: 13-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026). The annotation names come from
 the draft and may change.*
 
 The tools this package registers, and how to call them. Most tools read the backoffice extension registry, so they
@@ -16,21 +16,24 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_list_sections` | always | Sections the current user can access | R |
 | `umbraco_list_section_menu` | always | A section's sidebar menu items, with their tree alias or entity type | R |
 | `umbraco_get_tree_items` | always | Root entity and root items of a tree, or the children of an item | R, U |
+| `umbraco_search_entities` | always | Find entities by name with the backoffice search; returns their paths | R, U |
 | `umbraco_open_entity` | always | Open `section/{section}/workspace/{entityType}/edit/{unique}` | none |
-| `umbraco_list_entity_actions` / `umbraco_run_entity_action` | always | The "..." menu of an entity | R / C |
-| `umbraco_list_create_options` / `umbraco_run_create_option` | always | The options in an entity's Create dialog | R / none |
-| `umbraco_list_modals` | always | Open modals, with their data, value and button labels | R, U |
-| `umbraco_click_modal_button` | always | Click a modal button by label | C |
+| `umbraco_run_entity_action` | always | Run an action from an entity's "..." menu by label, such as Trash; lists them without one | C |
+| `umbraco_run_create_option` | always | Run an option from an entity's Create dialog by label, such as New Form; lists them without one | none |
+| `umbraco_list_modals` | always | Open modals, with their data, value and buttons (id and label) | R, U |
+| `umbraco_click_modal_button` | always | Click a modal button by id, or by label | C |
 | `umbraco_set_modal_value` | always | Change a modal's pending value | U |
 | `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
-| `umbraco_list_allowed_document_types` | always | Allowed document types at root or under a parent | R, U |
-| `umbraco_open_new_document` / `umbraco_open_document` | always | Open the document workspace | none |
-| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state | R |
-| `umbraco_list_workspace_actions` / `umbraco_run_workspace_action` | any workspace open | The workspace footer buttons, such as Save | R / C |
+| `umbraco_list_allowed_document_types` | Content section open | Allowed document types at root or under a parent | R, U |
+| `umbraco_open_new_document` / `umbraco_open_document` | Content section open | Open the document workspace | none |
+| `umbraco_create_document` | Content section open | Open a new document, set its name and values, and save or publish it, in one call (invariant documents) | C, U |
+| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state, and footer actions | R |
+| `umbraco_run_workspace_action` | any workspace open | Run a workspace footer button by label, such as Save; `umbraco_get_workspace_info` lists them | C |
 | `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values | R, U |
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
+| `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md).
 
@@ -60,6 +63,19 @@ current user's permissions still apply. The host decides what to do with them; f
 
 ## Behaviour
 
+- **Opening a workspace waits for it, and says what it added.** `umbraco_navigate`, the `umbraco_open_*` tools, and
+  create options and entity actions that navigate wait until the workspace has loaded (up to 10 s), then return
+  `workspaceReady` and `workspaceTools`: the tools that exist only while that workspace is open. Workspace tools are
+  only registered once the workspace has loaded, so one that appears can be called straight away.
+- **Actions report what happened.** `umbraco_run_entity_action`, `umbraco_run_workspace_action` and the document save
+  tools return the `notifications` the backoffice showed during the action, and `navigatedTo` when the path changed.
+  Umbraco 18 shows no notification for routine saves, trashes or deletes, so the list is often empty; validation
+  failures come back as an error instead.
+- **Modal buttons report the modal closing.** `umbraco_click_modal_button`, `umbraco_submit_modal` and
+  `umbraco_close_modal` wait up to 2 s for the modal to close, then briefly for notifications, and return `closed`
+  with them. A modal that stays open (a validation error, or a second step) returns `closed: false`.
+- **Match modal buttons by `id`.** `umbraco_list_modals` returns each button's `id` (for example `confirm` and
+  `cancel` in confirmation dialogs) and label. Labels change when the backoffice is translated; ids don't.
 - **Actions that open a modal don't wait for it.** They return straight away with `completed: false`, so the agent
   can finish the modal with the modal tools.
 - **Prefer `umbraco_click_modal_button` to `umbraco_submit_modal`.** Many modals do their work in the button handler,
@@ -68,23 +84,29 @@ current user's permissions still apply. The host decides what to do with them; f
   newest one handles calls until it closes. If its description or input schema differs from the one WebMCP holds,
   the name is registered with WebMCP again, and the previous schema comes back when it closes. Schemas that differ
   only in key order count as the same.
-- **Cancelling a call stops the wait, not the work.** WebMCP passes an abort signal with each call, and the page API
-  takes one as a third argument (`call(name, input, { signal })`). A call cancelled before it starts never runs the
-  tool. Once an action has started, cancelling makes the tool return straight away with the abort reason, but the
+- **Cancelling a call stops the wait, not the work.** WebMCP passes an abort signal with each call. A call cancelled
+  before it starts never runs the tool. Once an action has started, cancelling makes the tool return straight away with the abort reason, but the
   action carries on: a save that has started still saves.
 
 ## Calling tools
 
-The same tools are available two ways, whenever the package is enabled:
+The tools are registered with WebMCP (`document.modelContext`). This needs Chrome 149+ with WebMCP switched on; see
+the [README](../README.md#driving-it-from-claude-code) for agents.
 
-- **WebMCP** (`document.modelContext`), for in-browser agents. This needs Chrome 149+ with WebMCP switched on; see
-  the [README](../README.md#driving-it-from-claude-code).
-- **The page API** (`window.__umbWebMcp`), for page scripts. It works with or without the Chrome flag:
+- **WebMCP gets only the first sentence of each description,** with the full input schema. Clients such as Playwright
+  MCP repeat every description in each page snapshot as well as in the agent's tool list, so full descriptions cost
+  an agent thousands of tokens a turn. `umbraco_get_tool_description` returns the rest.
+- **Errors come back as results.** WebMCP reports an `execute` that throws as a generic `UnknownError`, so a failed
+  call resolves with `{ "error": "..." }` instead. A call missing a required parameter names the expected ones.
+- **From a script,** `document.modelContext.getTools()` lists the tools and `executeTool(tool, input)` runs one:
 
   ```js
-  await window.__umbWebMcp.call('umbraco_get_tree_items', { treeAlias: 'Forms.Tree.Forms' });
-  await window.__umbWebMcp.call('umbraco_save_document', {}, { signal: AbortSignal.timeout(10_000) });
-  window.__umbWebMcp.list();
+  const modelContext = document.modelContext;
+  const tool = (await modelContext.getTools()).find((x) => x.name === 'umbraco_get_tree_items');
+  const result = JSON.parse(await modelContext.executeTool(tool, { treeAlias: 'Forms.Tree.Forms' }));
   ```
 
-  Use it from Playwright's `page.evaluate`, or from Playwright MCP's `browser_evaluate`.
+  Chrome 155 deprecates passing the input as a JSON string, which Chrome 154 still needs;
+  `benchmarks/tests/webmcp-tools.ts` handles both. In a browser without WebMCP, such as Playwright's bundled
+  Chromium, load [Google's WebMCP polyfill](https://github.com/GoogleChromeLabs/webmcp-tools) first
+  (`benchmarks/tests/webmcp/webmcp-polyfill.js`, with `page.addInitScript`).

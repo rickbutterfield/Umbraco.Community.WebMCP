@@ -1,6 +1,7 @@
 import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import type { UmbWebMcpTool, UmbWebMcpToolCall } from '../model-context.ts';
-import { runWithoutBlocking } from '../utils.ts';
+import { startOutcome } from '../outcome.ts';
+import { runWithoutBlocking, whenWorkspaceReady } from '../utils.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import {
@@ -47,6 +48,17 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 		return this.#workspace;
 	}
 
+	/**
+	 * The workspace, once it has loaded. A document reloads after some actions, and setting a value while it does fails
+	 * with "Data is missing".
+	 */
+	async #getReadyWorkspace(signal?: AbortSignal) {
+		const workspace = this.#getWorkspace();
+		if (!(await whenWorkspaceReady(workspace, signal)))
+			throw new Error('The document is still loading. Try again shortly.');
+		return workspace;
+	}
+
 	async #getState() {
 		const workspace = this.#getWorkspace();
 		const properties = await workspace.structure.getContentTypeProperties();
@@ -89,8 +101,8 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 					properties: { name: { type: 'string' }, ...VARIANT_PROPERTIES },
 					required: ['name'],
 				},
-				execute: async (input: UmbVariantInput & { name: string }) => {
-					this.#getWorkspace().setName(input.name, toVariantId(input));
+				execute: async (input: UmbVariantInput & { name: string }, call?: UmbWebMcpToolCall) => {
+					(await this.#getReadyWorkspace(call?.signal)).setName(input.name, toVariantId(input));
 					return { ok: true };
 				},
 			},
@@ -108,8 +120,9 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 					},
 					required: ['alias', 'value'],
 				},
-				execute: async (input: UmbVariantInput & { alias: string; value: unknown }) => {
-					await this.#getWorkspace().setPropertyValue(input.alias, input.value, toVariantId(input));
+				execute: async (input: UmbVariantInput & { alias: string; value: unknown }, call?: UmbWebMcpToolCall) => {
+					const workspace = await this.#getReadyWorkspace(call?.signal);
+					await workspace.setPropertyValue(input.alias, input.value, toVariantId(input));
 					return { ok: true };
 				},
 			},
@@ -117,32 +130,30 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				name: 'umbraco_save_document',
 				title: 'Save document',
 				description:
-					'Saves the open document, as the Save button does. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
+					'Saves the open document, as the Save button does, and returns any notifications it showed. Validation failures are returned as an error. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
 				annotations: { consequentialHint: true, untrustedContentHint: true },
 				execute: async (_input: object, call?: UmbWebMcpToolCall) => {
+					const outcome = startOutcome();
 					const { completed } = await runWithoutBlocking(
 						() => this.#getWorkspace().requestSave(),
 						undefined,
 						call?.signal,
 					);
-					return { completed, state: await this.#getState() };
+					return { completed, ...(await outcome.report()), state: await this.#getState() };
 				},
 			},
 			{
 				name: 'umbraco_save_and_publish_document',
 				title: 'Save and publish document',
 				description:
-					'Saves and publishes the open document, as the Save and publish button does. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
+					'Saves and publishes the open document, as the Save and publish button does, and returns the notifications it showed. Variant documents open a dialog to choose variants: then completed is false, so finish it with the modal tools.',
 				annotations: { consequentialHint: true, untrustedContentHint: true },
 				execute: async (_input: object, call?: UmbWebMcpToolCall) => {
 					if (!this.#publishing) throw new Error('Publishing is not available for this document.');
 					const publishing = this.#publishing;
-					const { completed } = await runWithoutBlocking(
-						() => publishing.saveAndPublish(),
-						undefined,
-						call?.signal,
-					);
-					return { completed, state: await this.#getState() };
+					const outcome = startOutcome();
+					const { completed } = await runWithoutBlocking(() => publishing.saveAndPublish(), undefined, call?.signal);
+					return { completed, ...(await outcome.report()), state: await this.#getState() };
 				},
 			},
 		];

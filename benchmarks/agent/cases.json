@@ -1,0 +1,34 @@
+[
+	{
+		"id": "create-content",
+		"task": "Create a new page at the root of the content tree using the document type \"BenchPage\". Name it \"Bench page\", set its Textstring property to \"Hello from the benchmark\", and save it without publishing."
+	},
+	{
+		"id": "publish-content",
+		"task": "Publish the page \"Bench page\", which is at the root of the content tree."
+	},
+	{
+		"id": "rename-content",
+		"task": "Rename the page \"Bench draft name\", at the root of the content tree, to \"Bench page\" and save it."
+	},
+	{
+		"id": "trash-content",
+		"task": "Move the page \"Bench page\", at the root of the content tree, to the recycle bin."
+	},
+	{
+		"id": "forms-delete",
+		"task": "In the Forms section, delete the form \"Bench form\"."
+	},
+	{
+		"id": "forms-move",
+		"task": "In the Forms section, move the form \"Bench form\" into the folder \"Bench folder\"."
+	},
+	{
+		"id": "forms-build",
+		"task": "In the Forms section, create a new blank form named \"Bench form\" with three questions: a mandatory short answer question \"Name\", a long answer question \"Message\", and a dropdown question \"Topic\" with the options Sales, Support and Other, in that order. Save the form."
+	},
+	{
+		"id": "forms-pages",
+		"task": "In the Forms section, open the form \"Bench form\" and add a second page with the caption \"Details\". On that page, add a group with the caption \"About you\" containing a short answer question \"Company\". Save the form."
+	}
+]

@@ -1,5 +1,14 @@
 import { expect } from '@open-wc/testing';
-import { exposePageApi, registerTools, umbWebMcpToolHub, type UmbWebMcpTool } from './model-context.js';
+import {
+	checkInput,
+	firstSentence,
+	openPath,
+	registerTools,
+	registerToolsInSection,
+	summariseInput,
+	umbWebMcpToolHub,
+	type UmbWebMcpTool,
+} from './model-context.js';
 
 let toolCounter = 0;
 const uniqueName = () => `test_tool_${++toolCounter}`;
@@ -26,9 +35,10 @@ const describedTool = (name: string, description: string, inputSchema?: object):
 });
 
 /**
- * Installs a fake `document.modelContext` for the duration of a test.
+ * Installs a fake `document.modelContext` for the duration of a test and, unless `attach` is false, attaches the hub to
+ * it as the WebMCP surface does.
  */
-function installFakeModelContext() {
+function installFakeModelContext({ attach = true } = {}) {
 	const registrations: Array<FakeRegistration> = [];
 	Object.defineProperty(document, 'modelContext', {
 		configurable: true,
@@ -38,12 +48,96 @@ function installFakeModelContext() {
 			},
 		},
 	});
+	let detach = attach ? umbWebMcpToolHub.attachModelContext() : undefined;
 	return {
 		registrations,
 		active: () => registrations.filter((x) => !x.signal?.aborted),
-		uninstall: () => delete (document as any).modelContext,
+		attach: () => (detach = umbWebMcpToolHub.attachModelContext()),
+		detach: () => detach?.(),
+		uninstall: () => {
+			detach?.();
+			delete (document as any).modelContext;
+		},
 	};
 }
+
+describe('summariseInput', () => {
+	it('lists the parameters, marking optional ones', () => {
+		const schema = { type: 'object', properties: { key: {}, label: {} }, required: ['key'] };
+
+		expect(summariseInput(schema)).to.equal('key, label?');
+	});
+
+	it('returns nothing for a tool without parameters', () => {
+		expect(summariseInput(undefined)).to.equal(undefined);
+	});
+});
+
+describe('checkInput', () => {
+	const schema = { type: 'object', properties: { key: {}, id: {} }, required: ['key', 'id'] };
+
+	it('accepts an input with every required parameter', () => {
+		expect(() => checkInput('tool', schema, { key: 'a', id: 'b' })).not.to.throw();
+	});
+
+	it('names the missing and the unknown parameters', () => {
+		expect(() => checkInput('tool', schema, { key: 'a', buttonId: 'b' })).to.throw(
+			"tool needs id. It doesn't take buttonId. Its parameters are: key, id.",
+		);
+	});
+});
+
+describe('firstSentence', () => {
+	it('returns the first sentence', () => {
+		expect(firstSentence('Opens a thing. Then does more.')).to.equal('Opens a thing.');
+	});
+
+	it('keeps a full stop inside a path or a name', () => {
+		expect(firstSentence('Opens Forms.Tree.Forms items. More.')).to.equal('Opens Forms.Tree.Forms items.');
+	});
+
+	it('returns the whole description when there is one sentence without a full stop', () => {
+		expect(firstSentence('Opens a thing')).to.equal('Opens a thing');
+	});
+});
+
+describe('registerToolsInSection', () => {
+	const startPath = location.pathname;
+	const goTo = (path: string) => {
+		history.pushState(null, '', path);
+		window.dispatchEvent(new Event('changestate'));
+	};
+	const registered = (name: string) => umbWebMcpToolHub.list().some((x) => x.name === name);
+	afterEach(() => history.replaceState(null, '', startPath));
+
+	it('registers the tools only while their section is shown', () => {
+		const name = uniqueName();
+		const controller = new AbortController();
+		goTo('/umbraco/section/settings');
+		registerToolsInSection('content', [tool(name, 'ok')], controller.signal);
+		expect(registered(name)).to.equal(false);
+
+		goTo('/umbraco/section/content/workspace/document/edit/abc');
+		expect(registered(name)).to.equal(true);
+
+		goTo('/umbraco/section/forms');
+		expect(registered(name)).to.equal(false);
+		controller.abort();
+	});
+
+	it('stops following the path once aborted', () => {
+		const name = uniqueName();
+		const controller = new AbortController();
+		goTo('/umbraco/section/content');
+		registerToolsInSection('content', [tool(name, 'ok')], controller.signal);
+		controller.abort();
+		expect(registered(name)).to.equal(false);
+
+		goTo('/umbraco/section/settings');
+		goTo('/umbraco/section/content');
+		expect(registered(name)).to.equal(false);
+	});
+});
 
 describe('UmbWebMcpToolHub', () => {
 	describe('registering', () => {
@@ -93,17 +187,6 @@ describe('UmbWebMcpToolHub', () => {
 			registerTools([catcher], new AbortController().signal);
 			const controller = new AbortController();
 			await umbWebMcpToolHub.call(name, {}, { signal: controller.signal });
-
-			expect(seen.signal).to.equal(controller.signal);
-		});
-
-		it('passes the signal through the page API', async () => {
-			const name = uniqueName();
-			const { catcher, seen } = signalCatcher(name);
-			registerTools([catcher], new AbortController().signal);
-			exposePageApi();
-			const controller = new AbortController();
-			await (window as any).__umbWebMcp.call(name, {}, { signal: controller.signal });
 
 			expect(seen.signal).to.equal(controller.signal);
 		});
@@ -203,6 +286,22 @@ describe('UmbWebMcpToolHub', () => {
 			expect(forName(name)).to.have.length(1);
 		});
 
+		it('registers only the first sentence of the description', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Opens a thing. Then does more.')], new AbortController().signal);
+
+			expect(activeFor(name).map((x) => x.description)).to.deep.equal(['Opens a thing.']);
+			expect(umbWebMcpToolHub.describe(name).description).to.equal('Opens a thing. Then does more.');
+		});
+
+		it('does not register again when only later sentences change', () => {
+			const name = uniqueName();
+			registerTools([describedTool(name, 'Opens a thing. Older detail.')], new AbortController().signal);
+			registerTools([describedTool(name, 'Opens a thing. Newer detail.')], new AbortController().signal);
+
+			expect(forName(name)).to.have.length(1);
+		});
+
 		it('registers again with the newer description', () => {
 			const name = uniqueName();
 			registerTools([describedTool(name, 'Older description')], new AbortController().signal);
@@ -240,17 +339,41 @@ describe('UmbWebMcpToolHub', () => {
 			expect(forName(name)).to.have.length(1);
 		});
 
-		it('lists the handling registration in the page API', () => {
+		it('describes the handling registration', () => {
 			const name = uniqueName();
 			registerTools([describedTool(name, 'Older description')], new AbortController().signal);
 			const newer = new AbortController();
 			registerTools([describedTool(name, 'Newer description')], newer.signal);
-			exposePageApi();
-			const listed = () => (window as any).__umbWebMcp.list().find((x: { name: string }) => x.name === name);
 
-			expect(listed().description).to.equal('Newer description');
+			expect(umbWebMcpToolHub.describe(name).description).to.equal('Newer description');
 			newer.abort();
-			expect(listed().description).to.equal('Older description');
+			expect(umbWebMcpToolHub.describe(name).description).to.equal('Older description');
+		});
+	});
+
+	describe('the WebMCP surface', () => {
+		it('does not register with WebMCP until the surface attaches', () => {
+			const fake = installFakeModelContext({ attach: false });
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal);
+			const before = fake.active().filter((x) => x.name === name).length;
+			fake.attach();
+			const after = fake.active().filter((x) => x.name === name).length;
+			fake.uninstall();
+
+			expect([before, after]).to.deep.equal([0, 1]);
+		});
+
+		it('unregisters every tool when the surface detaches', () => {
+			const fake = installFakeModelContext();
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal);
+			fake.detach();
+			registerTools([tool(uniqueName(), 2)], new AbortController().signal);
+			const active = fake.active().length;
+			fake.uninstall();
+
+			expect(active).to.equal(0);
 		});
 	});
 
@@ -295,6 +418,26 @@ describe('UmbWebMcpToolHub', () => {
 			expect(await registration.execute({})).to.equal('{"ok":true}');
 		});
 
+		it('returns errors to WebMCP instead of throwing, so the agent sees the message', async () => {
+			const name = uniqueName();
+			registerTools(
+				[
+					{
+						name,
+						description: 'Needs a key',
+						inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
+						execute: async () => null,
+					},
+				],
+				new AbortController().signal,
+			);
+
+			const registration = fake.registrations.find((x) => x.name === name)!;
+			expect(JSON.parse(await registration.execute({}))).to.deep.equal({
+				error: `${name} needs key. Its parameters are: key.`,
+			});
+		});
+
 		it('passes the signal WebMCP calls with to the tool', async () => {
 			const name = uniqueName();
 			let seen: AbortSignal | undefined;
@@ -315,13 +458,117 @@ describe('UmbWebMcpToolHub', () => {
 		});
 	});
 
-	describe('page API', () => {
-		it('calls tools through window.__umbWebMcp', async () => {
+	describe('scopes', () => {
+		it('lists the names whose handling registration is in a scope', () => {
 			const name = uniqueName();
-			registerTools([tool(name, 'via page API')], new AbortController().signal);
-			exposePageApi();
+			registerTools([tool(name, 1)], new AbortController().signal, 'workspace');
 
-			expect(await (window as any).__umbWebMcp.call(name)).to.equal('via page API');
+			expect(umbWebMcpToolHub.namesInScope('workspace')).to.include(name);
+		});
+
+		it('leaves out a name whose newest registration has no scope', () => {
+			const name = uniqueName();
+			registerTools([tool(name, 1)], new AbortController().signal, 'workspace');
+			registerTools([tool(name, 2)], new AbortController().signal);
+
+			expect(umbWebMcpToolHub.namesInScope('workspace')).not.to.include(name);
+		});
+
+		it('tells listeners about registrations and removals', () => {
+			let changes = 0;
+			const unsubscribe = umbWebMcpToolHub.onChange(() => changes++);
+			const controller = new AbortController();
+			registerTools([tool(uniqueName(), 1)], controller.signal);
+			controller.abort();
+			unsubscribe();
+			registerTools([tool(uniqueName(), 1)], new AbortController().signal);
+
+			expect(changes).to.equal(2);
+		});
+
+		it('waits for tools registered in the scope later', async () => {
+			const since = umbWebMcpToolHub.generation;
+			setTimeout(() => registerTools([tool(uniqueName(), 1)], new AbortController().signal, 'workspace'), 20);
+
+			expect(await umbWebMcpToolHub.waitForScope('workspace', since, { maxMs: 1000, quietMs: 10 })).to.equal(true);
+		});
+
+		it('does not count registrations from before', async () => {
+			registerTools([tool(uniqueName(), 1)], new AbortController().signal, 'workspace');
+			const since = umbWebMcpToolHub.generation;
+
+			expect(await umbWebMcpToolHub.waitForScope('workspace', since, { maxMs: 30, quietMs: 10 })).to.equal(false);
+		});
+
+		it('stops waiting when the caller cancels', async () => {
+			const controller = new AbortController();
+			const waiting = umbWebMcpToolHub.waitForScope('workspace', umbWebMcpToolHub.generation, {
+				signal: controller.signal,
+				maxMs: 10_000,
+			});
+			controller.abort(new Error('cancelled'));
+			let error: unknown;
+			try {
+				await waiting;
+			} catch (e) {
+				error = e;
+			}
+
+			expect((error as Error).message).to.equal('cancelled');
+		});
+	});
+
+	describe('opening a path', () => {
+		const original = location.pathname + location.search;
+		afterEach(() => history.replaceState(null, '', original));
+
+		it('returns straight away for a path without a workspace', async () => {
+			expect(await openPath('/umbraco/section/settings')).to.deep.equal({ navigatedTo: '/umbraco/section/settings' });
+		});
+
+		it('returns straight away when the open workspace already shows the entity', async () => {
+			const info = {
+				name: 'umbraco_get_workspace_info',
+				description: 'Returns the open workspace.',
+				execute: async () => ({ unique: 'same-key', ready: true }),
+			};
+			const controller = new AbortController();
+			registerTools([info], controller.signal, 'workspace');
+			const start = Date.now();
+			const result: any = await openPath('/umbraco/section/content/workspace/document/edit/same-key');
+			controller.abort();
+
+			expect(result.workspaceReady).to.equal(true);
+			expect(Date.now() - start).to.be.lessThan(1000);
+		});
+
+		it('waits for the workspace and returns its tools', async () => {
+			const name = uniqueName();
+			setTimeout(() => registerTools([tool(name, 1)], new AbortController().signal, 'workspace'), 20);
+			const result: any = await openPath('/umbraco/section/content/workspace/document/edit/abc');
+
+			expect(result.workspaceReady).to.equal(true);
+			expect(result.workspaceTools).to.include(name);
+		});
+	});
+
+	describe('describing', () => {
+		it('describes one tool in full', () => {
+			const name = uniqueName();
+			registerTools(
+				[describedTool(name, 'Opens a thing. Then does more.', { type: 'object' })],
+				new AbortController().signal,
+			);
+
+			expect(umbWebMcpToolHub.describe(name)).to.deep.include({
+				name,
+				description: 'Opens a thing. Then does more.',
+				inputSchema: { type: 'object' },
+			});
+		});
+
+		it('rejects describing an unknown tool', () => {
+			expect(() => umbWebMcpToolHub.describe(uniqueName())).to.throw(/No WebMCP tool/);
 		});
 	});
 });

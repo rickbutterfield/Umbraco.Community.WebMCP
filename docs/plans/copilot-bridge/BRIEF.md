@@ -8,8 +8,7 @@ open a different document or form, run an entity action from the "..." menu, use
 through a modal. A user who asks it "open the Contact form and delete it", or "create a new form from the contact
 template", has to do the navigation by hand first.
 
-This package already has those tools for agents outside the backoffice, through WebMCP and the page API
-(`window.__umbWebMcp`). Most of them are discovered from the backoffice extension registry, so they work for packages such as
+This package already has those tools for agents outside the backoffice, through WebMCP. Most of them are discovered from the backoffice extension registry, so they work for packages such as
 Umbraco Forms without package-specific code. The Copilot runs browser tools of almost the same shape:
 `uaiAgentFrontendTool` extensions, with a name, a description, JSON Schema parameters, a scope, an `isDestructive` flag,
 optional approval and `execute(args)`. See [docs/umbraco-ai-copilot.md](../../umbraco-ai-copilot.md). Bridging the
@@ -22,8 +21,8 @@ This changes a standing rule. Until now, the package's tools only loaded in Deve
 explicitly. The bridge has to work on production sites, so:
 
 > ASSUMPTION: The bridge has its own opt-in setting, separate from the WebMCP tools. Switching on the Copilot bridge
-> in production does **not** register tools on `document.modelContext` or expose `window.__umbWebMcp`. Those stay
-> dev-only unless switched on separately.
+> in production does **not** register tools on `document.modelContext`. That stays dev-only unless switched on
+> separately.
 
 > ASSUMPTION: In production, the safety boundary is the Copilot's agent tool permissions plus the editor's own user
 > permissions. Every tool that changes data needs approval in the chat. Nothing the bridge adds lets an agent do
@@ -48,7 +47,7 @@ explicitly. The bridge has to work on production sites, so:
 > does this; the bridge only has to declare scopes.
 
 > ASSUMPTION: On a site running in Production, with only the bridge switched on, the tools reach the Copilot.
-> `document.modelContext` and `window.__umbWebMcp` get nothing.
+> `document.modelContext` gets nothing.
 
 **Constraints:**
 

@@ -1,5 +1,5 @@
 import { expect } from '@open-wc/testing';
-import { runWithoutBlocking, toPlain, waitForQuiet } from './utils.js';
+import { findAction, isWorkspaceReady, runWithoutBlocking, toPlain, waitForQuiet, whenWorkspaceReady } from './utils.js';
 
 /**
  * Counts the timers started through window.setTimeout and not yet fired or cleared, for the duration of a test.
@@ -167,13 +167,94 @@ describe('waitForQuiet', () => {
 		expect(timers.pending()).to.equal(0);
 	});
 
+	it('unsubscribes once it has resolved', async () => {
+		let unsubscribed = false;
+		await waitForQuiet(
+			() => () => {
+				unsubscribed = true;
+			},
+			10,
+			1000,
+		);
+
+		expect(unsubscribed).to.equal(true);
+	});
+
+	it('unsubscribes when the caller cancels', async () => {
+		let unsubscribed = false;
+		const controller = new AbortController();
+		const waiting = waitForQuiet(
+			() => () => {
+				unsubscribed = true;
+			},
+			10_000,
+			20_000,
+			controller.signal,
+		);
+		controller.abort();
+		await rejectionOf(waiting);
+
+		expect(unsubscribed).to.equal(true);
+	});
+
 	it('does not subscribe when the signal has already aborted', async () => {
 		let subscribed = false;
 		const controller = new AbortController();
 		controller.abort();
-		await rejectionOf(waitForQuiet(() => (subscribed = true), 10, 1000, controller.signal));
+		await rejectionOf(
+			waitForQuiet(
+				() => {
+					subscribed = true;
+				},
+				10,
+				1000,
+				controller.signal,
+			),
+		);
 
 		expect(subscribed).to.equal(false);
+	});
+});
+
+describe('workspace readiness', () => {
+	const workspace = ({ loading = false, hasData = true } = {}) => ({
+		loading: { getIsOn: () => loading },
+		getData: () => (hasData ? {} : undefined),
+	});
+
+	it('is ready when nothing is loading and the data is there', () => {
+		expect(isWorkspaceReady(workspace())).to.equal(true);
+	});
+
+	it('is not ready while loading', () => {
+		expect(isWorkspaceReady(workspace({ loading: true }))).to.equal(false);
+	});
+
+	it('is not ready before the data has arrived', () => {
+		expect(isWorkspaceReady(workspace({ hasData: false }))).to.equal(false);
+	});
+
+	it('is ready when the workspace holds no data', () => {
+		expect(isWorkspaceReady({})).to.equal(true);
+	});
+
+	it('waits until the workspace has loaded', async () => {
+		const loading = workspace({ loading: true });
+		setTimeout(() => (loading.loading.getIsOn = () => false), 30);
+
+		expect(await whenWorkspaceReady(loading, undefined, 1000, 5)).to.equal(true);
+	});
+
+	it('gives up after the time allowed', async () => {
+		expect(await whenWorkspaceReady(workspace({ loading: true }), undefined, 30, 5)).to.equal(false);
+	});
+
+	it('rejects with the abort reason when the caller cancels', async () => {
+		const controller = new AbortController();
+		const waiting = whenWorkspaceReady(workspace({ loading: true }), controller.signal, 10_000, 5);
+		controller.abort(new Error('cancelled'));
+
+		expect(((await rejectionOf(waiting)) as Error).message).to.equal('cancelled');
 	});
 });
 
@@ -199,5 +280,26 @@ describe('toPlain', () => {
 
 	it('turns undefined into null', () => {
 		expect(toPlain(undefined)).to.equal(null);
+	});
+});
+
+describe('findAction', () => {
+	const actions = [
+		{ alias: 'Umb.EntityAction.Document.Trash', label: 'Trash' },
+		{ alias: 'Umb.EntityAction.Document.Move', label: 'Move to...' },
+	];
+
+	it('finds an action by alias', () => {
+		expect(findAction(actions, 'Umb.EntityAction.Document.Trash', 'here').label).to.equal('Trash');
+	});
+
+	it('finds an action by label, ignoring case and a trailing ellipsis', () => {
+		expect(findAction(actions, 'move to', 'here').alias).to.equal('Umb.EntityAction.Document.Move');
+	});
+
+	it('names the available labels when nothing matches', () => {
+		expect(() => findAction(actions, 'Delete', 'for this entity')).to.throw(
+			'"Delete" is not available for this entity. Available: Trash, Move to....',
+		);
 	});
 });

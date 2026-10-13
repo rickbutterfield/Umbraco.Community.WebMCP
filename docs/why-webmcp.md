@@ -1,6 +1,6 @@
 # Why WebMCP, beyond testing
 
-*Last checked: 07-10-2026. The WebMCP maturity facts and the Umbraco.AI details change quickly; recheck them before relying on this page.*
+*Last checked: 08-10-2026. The WebMCP maturity facts and the Umbraco.AI details change quickly; recheck them before relying on this page.*
 
 WebMCP lets an agent work inside the page someone already has open: as that person, on what they're looking at, with
 every change visible before it's saved. [Umbraco MCP, WebMCP and Playwright](testing-layers.md) covers testing; this
@@ -8,8 +8,10 @@ page covers everything else.
 
 ## What WebMCP gives any website
 
-- **Reliability and cost.** The agent calls named, typed actions instead of reading screenshots or the accessibility
-  tree and guessing where to click. It's faster, uses fewer tokens and makes fewer mistakes.
+- **Fewer steps.** The agent calls named, typed actions instead of reading screenshots or the accessibility tree and
+  guessing where to click. In this repo's benchmark that meant about 20% fewer turns and 10% lower cost on short
+  content tasks, at the same speed, with the gap growing on longer paths ([benchmarks/RESULTS.md](../benchmarks/RESULTS.md)).
+  It isn't a big win on simple flows; expect more on long or fragile ones, which haven't been measured yet.
 - **No new login to set up.** Tools run in the user's existing session with their existing permissions. There's no
   API key, OAuth app or separate MCP server to run.
 - **The site decides what agents can do.** The site lists the actions it allows and marks the risky ones
@@ -53,7 +55,7 @@ That's almost exactly the shape of this package's tools, so the two can be bridg
 | Direction | How | Gain | Watch out for |
 |---|---|---|---|
 | **This package's tools in the Copilot** | Register a `uaiAgentFrontendTool` for each tool in the tool hub, mapping `inputSchema` to `parameters`. Map `readOnlyHint` to a read scope (for example `backoffice-navigation`), and `consequentialHint` to `isDestructive` plus `approval: true`. Workspace tools come and go, so register and unregister their manifests as the hub changes | The Copilot can move around the whole backoffice: sections, trees, any package's entity actions, create options and modals. Today it works on the selected entity. Administrators grant the new scopes per agent, as with any Copilot tool | Skip the document tools, which the Copilot's own entity tools (`set_value`, `save`, `save_and_publish`) already cover, with block-aware paths. Copilot tool names are snake_case without a prefix, so keep the `umbraco_` names |
-| **The Copilot's tools on WebMCP** | Observe `uaiAgentFrontendTool` manifests and register them in the tool hub | External agents (Gemini in Chrome, chrome-devtools-mcp, Playwright through the page API) get the Copilot's content-editing tools | The Copilot's approval prompt lives in its chat UI. Calling `execute` directly skips it, so tools marked `approval` must not be exposed, or must get an equivalent confirmation |
+| **The Copilot's tools on WebMCP** | Observe `uaiAgentFrontendTool` manifests and register them in the tool hub | External agents (Gemini in Chrome, chrome-devtools-mcp, Playwright MCP) get the Copilot's content-editing tools | The Copilot's approval prompt lives in its chat UI. Calling `execute` directly skips it, so tools marked `approval` must not be exposed, or must get an equivalent confirmation |
 
 Longer term, two browser-tool contracts this similar suggest one shared extension type in the CMS, used by both the
 Copilot and WebMCP. That would be a CMS change, through the RFC process.
