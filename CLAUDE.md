@@ -30,6 +30,14 @@ Use the terms in `docs/vocabulary.md`. In particular, "Copilot bridge" is the Um
 Explanations that contain time-sensitive facts (WebMCP's maturity, browser versions, another product's internals)
 carry a "Last checked" date. Recheck and update it when you touch the page.
 
+External references to check before changing how tools are designed or called:
+
+- [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools): Google's WebMCP demos, tool
+  design guidance and the polyfill (vendored at `benchmarks/tests/webmcp/webmcp-polyfill.js`, pinned to `04732fb`).
+- [Why WebMCP matters](https://blog.yoav.ws/posts/why_webmcp_matters/) (Yoav Weiss, 12-10-2026): co-browsing, the
+  nekuda.ai and Shopify results, output schemas still to come, and open questions such as Permissions Policy for
+  iframes and evaluating real agents rather than bare models.
+
 ## Structure
 
 ```

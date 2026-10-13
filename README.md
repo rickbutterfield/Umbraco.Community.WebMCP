@@ -45,6 +45,14 @@ tool as its own, rewrites its cached prompt whenever the tools change. Picker mo
   package's tools map onto them.
 - [Vocabulary](docs/vocabulary.md): the terms used across these docs.
 
+## Further reading
+
+- [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools): Google's WebMCP demos and tool
+  design guidance, and the polyfill vendored in `benchmarks/tests/webmcp`.
+- [Why WebMCP matters](https://blog.yoav.ws/posts/why_webmcp_matters/) (Yoav Weiss, 12-10-2026): the case for
+  co-browsing agents, published speed and cost results from nekuda.ai and Shopify, and the open questions, such as
+  testing against real agents rather than bare models.
+
 ## Enabling
 
 The tools reach agents through WebMCP, a separate backoffice entry point with its own setting. By default it's only
