@@ -152,6 +152,8 @@ out of reach. CMS and Forms 18.2.1; the content baselines below were measured on
 - **So the cost is the eager tool list.** WebMCP puts every tool's definition into the agent's context on every turn;
   the page API's `list()` gives one-sentence summaries once and the agent asks for more only when it needs it. Fewer
   tools exposed at once, or a client that loads tool definitions lazily, would close the gap; the descriptions won't.
+  (Only partly right: the [like-for-like round](#like-for-like-discovery-13-10-2026) puts about a third of the gap on
+  discovery and the rest on how the client delivers the tools.)
 
 **Round 3, client-side tool search and tools that do a whole job** (three tasks, 3 runs each, all 27 passed). Median
 turns and mean cost per run:
@@ -202,9 +204,42 @@ Agents still list a menu before running from it, so running by label saved no tu
   well under half the cost on these tasks, and up to five times fewer turns on the Forms designer.
 - **WebMCP is now the fastest way through these tasks** (87 s against the page API's 97-105 s) but still costs about
   1.6 times the page API, because every tool definition is in the agent's context on every turn. Of everything tried,
-  only cutting the number of tools and the turns moved that.
+  only cutting the number of tools and the turns moved that. The like-for-like round below shows how much of that
+  is discovery and how much is the client.
 - **Whole-job tools are used about half the time.** When the agent used `umbraco_create_document`, creating content
   took 6 turns and 23 s; otherwise it went step by step.
+
+## Like-for-like discovery (13-10-2026)
+
+The rounds above don't compare like with like. The page API agent discovers tools lazily, through `list()`'s
+one-sentence summaries and `describe(name)`, a design this package added. WebMCP leaves discovery to the client, and
+Playwright MCP gives the agent every tool up front. The `page-api-eager` variant gives the page API agent what WebMCP
+gets: before anything else, and again whenever a tool returns `workspaceTools` or it changes section, it reads every
+tool's input schema, annotations and the first sentence of its description. It still calls the tools through
+`browser_evaluate`, so the list goes into the conversation once each time rather than into the agent's tool list.
+Agents followed the instruction and read the list 2 to 4 times a run.
+
+Three tasks, 3 runs of each variant, all 27 passed; fresh baselines from the same session (CMS and Forms 18.2.1,
+commit 61ba456 plus the variant). Medians of turns and time, mean cost and mean cache tokens per run:
+
+| Task | Page API | Page API, eager discovery | WebMCP |
+|---|---|---|---|
+| Create content | 9 turns, 31 s, $0.045 | 8 turns, 28 s, $0.054 | 10 turns, 30 s, $0.111 |
+| Build a form | 10 turns, 34 s, $0.072 | 11 turns, 33 s, $0.104 | 13 turns, 30 s, $0.127 |
+| Add a page to a form | 10 turns, 35 s, $0.067 | 11 turns, 45 s, $0.091 | 10 turns, 30 s, $0.123 |
+| **Total** | **29 turns, 100 s, $0.184** | **30 turns, 106 s, $0.249** | **33 turns, 90 s, $0.361** |
+| Cache writes / reads per run | 8.8k / 135k | 12.6k / 167k | 23.4k / 179k |
+
+- **Discovery is about a third of the gap.** Eager discovery costs the page API 35% more ($0.184 to $0.249), but
+  WebMCP costs another 45% on top ($0.361). Of the $0.177 between the page API and WebMCP, about $0.065 is discovery.
+- **The rest is how the client delivers the tools.** The eager page API agent and the WebMCP agent read a similar
+  amount of context (167k against 179k cached tokens a run), but WebMCP writes the cache nearly twice as much (23.4k
+  against 12.6k). Playwright MCP puts the tools in the agent's tool list, so each change to them (a workspace opening,
+  a section change) rewrites the cached prompt; a list read into the conversation is only appended. Playwright MCP also
+  adds a safety note of about 170 characters to each tool and lists the tools in each snapshot.
+- **Neither part is WebMCP itself.** Both come from the client: which tools it shows, when, and where in the prompt.
+  The standard has no lazy discovery, though: Chrome's `getTools()` returns every tool.
+- **WebMCP stays the fastest** (90 s against 100 s) at the same number of turns.
 
 ## Verdict
 
@@ -221,10 +256,12 @@ worse on its picker. So the case for WebMCP is product toolsets for complex edit
 generic navigation.
 
 **Real WebMCP (09-10-2026):** through Chrome's WebMCP and Playwright MCP, the tools keep the page API's speed and turn
-savings but cost 1.7 to 2.5 times as much, because every tool definition sits in the agent's context on every turn.
-On Forms that's still a little cheaper than clicking, and much cheaper on building a form; on content it's more
-expensive than clicking. Trimming descriptions or snapshots didn't change that. Today, an agent with a generic browser
-is cheapest using the page API's lazy `list()`; WebMCP's eager tool list pays off only where the tools save many turns.
+savings but cost 1.7 to 2.5 times as much. On Forms that's still a little cheaper than clicking, and much cheaper on
+building a form; on content it's more expensive than clicking. Trimming descriptions or snapshots didn't change that.
+The like-for-like round (13-10-2026) splits the gap: about a third is the page API's lazy discovery, which this
+package added and WebMCP doesn't have, and about two thirds is how Playwright MCP delivers WebMCP tools (in the
+agent's tool list, rewriting the cached prompt whenever they change). So "the page API is cheaper" means "lazy discovery
+through `browser_evaluate` is cheaper than Playwright MCP's WebMCP support today", not that WebMCP costs more by nature.
 Client-side tool search and tools that do a whole job each helped one task and not the others. Running actions by
 label and registering tools only in their section made WebMCP the fastest approach (87 s against 97 s for the page API
 on three tasks) and cut its cost by 15%, to about 1.6 times the page API's.

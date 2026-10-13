@@ -4,7 +4,8 @@
 //
 // Every variant drives a headless browser through Playwright MCP, logged in from playwright/.auth/user.json.
 // "playwright" can't run scripts in the page (browser_evaluate and browser_run_code_unsafe are disallowed), so it
-// has to work through the UI; "page-api" is told about window.__umbWebMcp. "webmcp" runs Google Chrome with WebMCP
+// has to work through the UI; "page-api" is told about window.__umbWebMcp. "page-api-eager" is "page-api" with
+// WebMCP's discovery: the agent reads every tool's full definition up front instead of list()'s summaries. "webmcp" runs Google Chrome with WebMCP
 // switched on, so Playwright MCP gives the agent the tools the page registers as its own webmcp_* tools; it can't run
 // scripts in the page either, so it can't reach the page API. "webmcp-no-snapshots" is "webmcp" with Playwright MCP's
 // --snapshot-mode none, so actions don't return a page snapshot or refresh the tool list. "webmcp-tool-search" is
@@ -44,6 +45,11 @@ const VARIANT_PROMPTS = {
 	webmcp:
 		'The backoffice registers WebMCP tools for agents. They are listed in each page snapshot, and you can call them as your own tools named webmcp_<tool name>; prefer them to clicking. Tools that open a workspace return workspaceTools: the tools that only exist while it is open, which appear after the next snapshot.',
 };
+// The page API with WebMCP's discovery: what WebMCP registers for every tool (the first sentence of its description,
+// its input schema and annotations; see modelContextDescription) up front, read again whenever the tools change
+const EAGER_LIST = String.raw`window.__umbWebMcp.list({ full: true }).map(({ name, description, inputSchema, annotations }) => ({ name, description: description.match(/^.+?[.!?](?=\s|$)/s)?.[0] ?? description, inputSchema, annotations }))`;
+VARIANT_PROMPTS['page-api-eager'] =
+	`The backoffice exposes named tools for agents through window.__umbWebMcp. Before anything else, run ${EAGER_LIST} with browser_evaluate to read every tool's input schema and the first sentence of its description, and run it again whenever a tool returns workspaceTools or you move to another section, because the tools change. window.__umbWebMcp.describe(name) returns a tool's full description. Call a tool with await window.__umbWebMcp.call(name, input) through browser_evaluate, and prefer the tools to clicking.`;
 VARIANT_PROMPTS['webmcp-no-snapshots'] = `${VARIANT_PROMPTS.webmcp} Actions don't return a snapshot, so call browser_snapshot when you need to see the page.`;
 VARIANT_PROMPTS['webmcp-tool-search'] = VARIANT_PROMPTS.webmcp;
 // Variants that may not run scripts in the page
