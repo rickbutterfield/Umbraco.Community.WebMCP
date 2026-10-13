@@ -9,8 +9,8 @@
   </ItemGroup>
   <!-- Umbraco packages -->
   <ItemGroup>
-    <!-- The package supports the whole 18 major -->
-    <PackageVersion Include="Umbraco.Cms.Infrastructure" Version="[18.0.0, 19.0.0)" />
+    <!-- The package supports Umbraco 17 and 18 (tested on 17.0.0 and 18.2.1) -->
+    <PackageVersion Include="Umbraco.Cms.Infrastructure" Version="[17.0.0, 19.0.0)" />
   </ItemGroup>
   <!-- Test site -->
   <ItemGroup>

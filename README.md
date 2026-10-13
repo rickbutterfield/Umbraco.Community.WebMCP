@@ -1,6 +1,6 @@
 # Umbraco.Community.WebMCP (spike)
 
-Development-only [WebMCP](https://developer.chrome.com/docs/ai/webmcp) tools for the Umbraco 18 backoffice. Once
+Development-only [WebMCP](https://developer.chrome.com/docs/ai/webmcp) tools for the Umbraco 17 and 18 backoffice. Once
 you're logged in, the backoffice registers tools that an agent can call directly to navigate and arrange backoffice
 state: sections, trees, workspaces, entity actions, create options and modals. No snapshot-and-click is needed. The
 tools are registered with WebMCP (`document.modelContext`), for agents and for scripted tests.
@@ -93,6 +93,10 @@ dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --launch-profile
 Open https://localhost:44311/umbraco. Use HTTPS, because the backoffice refuses login over HTTP. The test site installs
 unattended, with the dev-only admin set in `appsettings.Development.json`. It also includes Umbraco Forms, to try the
 tools against a package.
+
+The test site runs Umbraco 18. To try Umbraco 17, change the test site's versions in `Directory.Packages.props`
+(`Umbraco.Cms`, `Umbraco.Cms.DevelopmentMode.Backoffice`, `Umbraco.TheStarterKit` and `Umbraco.Forms`) and start from
+a fresh database, because Umbraco can't downgrade one. The tools were checked on Umbraco 17.0.0 with Forms 17.0.0.
 
 The compiled client in `src/Umbraco.Community.WebMCP.StaticAssets/wwwroot` is not committed, so build it before running or
 packing. Use `npm run watch-client` while working on the client, and `npm run test-client` to run the front-end tests.

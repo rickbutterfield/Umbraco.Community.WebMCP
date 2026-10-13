@@ -3,7 +3,15 @@ import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { createExtensionApi, UmbExtensionsManifestInitializer } from '@umbraco-cms/backoffice/extension-api';
 import { umbExtensionsRegistry } from '@umbraco-cms/backoffice/extension-registry';
 import { UmbLocalizationController } from '@umbraco-cms/backoffice/localization-api';
-import { UMB_WORKSPACE_EDIT_PATH_PATTERN, UMB_WORKSPACE_PATH_PATTERN } from '@umbraco-cms/backoffice/workspace';
+import { UmbPathPattern } from '@umbraco-cms/backoffice/router';
+import { UMB_WORKSPACE_PATH_PATTERN } from '@umbraco-cms/backoffice/workspace';
+
+// The same pattern as UMB_WORKSPACE_EDIT_PATH_PATTERN, which the backoffice only exports from Umbraco 17.2. Importing
+// a name the backoffice doesn't export stops this module loading, so it's built here for Umbraco 17.0 and 17.1.
+const WORKSPACE_EDIT_PATH_PATTERN = new UmbPathPattern<{ unique: string }, { entityType: string; sectionName: string }>(
+	'edit/:unique',
+	UMB_WORKSPACE_PATH_PATTERN,
+);
 
 const BACKOFFICE_PATH_PATTERN = /\/section\/([^/]+)(?:\/workspace\/([^/]+)\/([^/]+)(?:\/([^/]+))?)?/;
 const SECTION_ALIAS_CONDITION = 'Umb.Condition.SectionAlias';
@@ -338,7 +346,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 				if (!sectionName) throw new Error(`Don't know which section "${entityType}" belongs to, so pass section.`);
 				return openPath(
 					unique
-						? UMB_WORKSPACE_EDIT_PATH_PATTERN.generateAbsolute({ sectionName, entityType, unique })
+						? WORKSPACE_EDIT_PATH_PATTERN.generateAbsolute({ sectionName, entityType, unique })
 						: UMB_WORKSPACE_PATH_PATTERN.generateAbsolute({ sectionName, entityType }),
 					call?.signal,
 				);

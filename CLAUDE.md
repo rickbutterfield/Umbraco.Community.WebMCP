@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 **Repository**: https://github.com/rickbutterfield/Umbraco.Community.WebMCP
 
-Umbraco.Community.WebMCP is a development-only package for the Umbraco 18 backoffice. It registers tools on WebMCP
+Umbraco.Community.WebMCP is a development-only package for the Umbraco 17 and 18 backoffice. It registers tools on WebMCP
 (`document.modelContext`), so agents can navigate and arrange backoffice state: sections, trees, workspaces, entity
 actions, create options and modals. Most tools read the backoffice extension
 registry, so they work for packages such as Umbraco Forms without package-specific code.
