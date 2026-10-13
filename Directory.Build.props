@@ -4,9 +4,9 @@
     <LangVersion>latest</LangVersion>
     <Authors>Rick Butterfield</Authors>
     <Copyright>Copyright © Rick Butterfield $([System.DateTime]::Today.ToString('yyyy'))</Copyright>
-    <Product>Umbraco WebMCP</Product>
-    <PackageProjectUrl>https://github.com/rickbutterfield/Umbraco-WebMCP</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/rickbutterfield/Umbraco-WebMCP</RepositoryUrl>
+    <Product>Umbraco.Community.WebMCP</Product>
+    <PackageProjectUrl>https://github.com/rickbutterfield/Umbraco.Community.WebMCP</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rickbutterfield/Umbraco.Community.WebMCP</RepositoryUrl>
     <PackageTags>umbraco webmcp mcp ai</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <NeutralLanguage>en-US</NeutralLanguage>

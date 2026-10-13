@@ -1,4 +1,4 @@
-# Umbraco.WebMCP (spike)
+# Umbraco.Community.WebMCP (spike)
 
 Development-only [WebMCP](https://developer.chrome.com/docs/ai/webmcp) tools for the Umbraco 18 backoffice. Once
 you're logged in, the backoffice registers tools that an agent can call directly to navigate and arrange backoffice
@@ -51,7 +51,7 @@ The tools reach agents through WebMCP, a separate backoffice entry point with it
 served in the `Development` environment:
 
 ```json
-{ "Umbraco": { "WebMCP": { "Enabled": true, "ModelContext": true } } }
+{ "Umbraco": { "Community": { "WebMCP": { "Enabled": true, "ModelContext": true } } } }
 ```
 
 - `Enabled` is the default for every surface.
@@ -87,12 +87,12 @@ claude mcp add playwright -- npx -y @playwright/mcp@latest --browser chrome --co
 ```bash
 npm run install-client
 npm run build-client
-dotnet run --project examples/Umbraco.WebMCP.TestSite --launch-profile Umbraco.Web.UI
+dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --launch-profile Umbraco.Web.UI
 ```
 
 Open https://localhost:44311/umbraco. Use HTTPS, because the backoffice refuses login over HTTP. The test site installs
 unattended, with the dev-only admin set in `appsettings.Development.json`. It also includes Umbraco Forms, to try the
 tools against a package.
 
-The compiled client in `src/Umbraco.WebMCP.StaticAssets/wwwroot` is not committed, so build it before running or
+The compiled client in `src/Umbraco.Community.WebMCP.StaticAssets/wwwroot` is not committed, so build it before running or
 packing. Use `npm run watch-client` while working on the client, and `npm run test-client` to run the front-end tests.

@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Umbraco.WebMCP\Umbraco.WebMCP.csproj" />
+    <ProjectReference Include="..\..\src\Umbraco.Community.WebMCP\Umbraco.Community.WebMCP.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

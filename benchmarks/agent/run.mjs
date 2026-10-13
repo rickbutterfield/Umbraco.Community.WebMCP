@@ -57,7 +57,7 @@ const PAGE_SCRIPT_TOOLS = {
 
 mkdirSync(resultsDir, { recursive: true });
 // Run the agent outside the repo, so no project CLAUDE.md or settings shape its behaviour
-const agentCwd = path.join(tmpdir(), 'umbraco-webmcp-bench');
+const agentCwd = path.join(tmpdir(), 'umbraco-community-webmcp-bench');
 mkdirSync(agentCwd, { recursive: true });
 
 const npx = process.platform === 'win32' ? { command: 'cmd', args: ['/c', 'npx'] } : { command: 'npx', args: [] };
@@ -84,7 +84,7 @@ const mcpConfigs = {
  * Chrome DevTools MCP can't load a saved login, so each run gets a fresh Chrome profile with the login copied in.
  */
 async function devtoolsMcpConfig() {
-	const profile = mkdtempSync(path.join(tmpdir(), 'umbraco-webmcp-devtools-'));
+	const profile = mkdtempSync(path.join(tmpdir(), 'umbraco-community-webmcp-devtools-'));
 	const { cookies, origins } = JSON.parse(readFileSync(storageState, 'utf8'));
 	const context = await chromium.launchPersistentContext(profile, { channel: 'chrome', headless: true, ignoreHTTPSErrors: true });
 	await context.addCookies(cookies);

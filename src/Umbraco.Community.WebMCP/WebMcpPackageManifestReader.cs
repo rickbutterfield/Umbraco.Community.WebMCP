@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Manifest;
 using Umbraco.Cms.Infrastructure.Manifest;
 
-namespace Umbraco.WebMCP;
+namespace Umbraco.Community.WebMCP;
 
 /// <summary>
 /// Supplies the backoffice entry points: the tools, plus one entry point per enabled surface (WebMCP).
@@ -30,7 +30,7 @@ internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
         List<object> surfaces = [];
         if (options.ModelContext ?? defaultEnabled)
         {
-            surfaces.Add(EntryPoint("ModelContext", "WebMCP Model Context Entry Point", "umbraco-webmcp-model-context.js"));
+            surfaces.Add(EntryPoint("ModelContext", "WebMCP Model Context Entry Point", "umbraco-community-webmcp-model-context.js"));
         }
 
         if (surfaces.Count == 0)
@@ -47,7 +47,7 @@ internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
             Version = typeof(WebMcpPackageManifestReader).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
             AllowTelemetry = false,
             // The tools themselves first, then the surfaces that make them reachable.
-            Extensions = [EntryPoint("EntryPoint", "WebMCP Entry Point", "umbraco-webmcp.js"), .. surfaces],
+            Extensions = [EntryPoint("EntryPoint", "WebMCP Entry Point", "umbraco-community-webmcp.js"), .. surfaces],
         };
 
         return Task.FromResult<IEnumerable<PackageManifest>>([manifest]);

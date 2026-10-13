@@ -63,7 +63,7 @@ way.
 
 ## Mapping this package's tools
 
-| Umbraco.WebMCP tool | `uaiAgentFrontendTool` |
+| Umbraco.Community.WebMCP tool | `uaiAgentFrontendTool` |
 |---|---|
 | `name` (for example `umbraco_open_entity`) | `meta.toolName`, which must match the name the model calls |
 | `description` | `meta.description` |

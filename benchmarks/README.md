@@ -1,6 +1,6 @@
 # Benchmarks: with and without WebMCP
 
-Two measurements, both against the test site (`examples/Umbraco.WebMCP.TestSite`, Umbraco CMS and Forms 18.2.1):
+Two measurements, both against the test site (`examples/Umbraco.Community.WebMCP.TestSite`, Umbraco CMS and Forms 18.2.1):
 
 - **Scripted** (`tests/scripted/`): five tests adapted from the CMS acceptance tests
   (`tests/Umbraco.Tests.AcceptanceTest/tests/DefaultConfig/Content/Content.spec.ts`) and three modelled on Umbraco

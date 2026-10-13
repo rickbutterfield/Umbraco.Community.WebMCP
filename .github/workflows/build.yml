@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: src/Umbraco.WebMCP.StaticAssets/package-lock.json
+          cache-dependency-path: src/Umbraco.Community.WebMCP.StaticAssets/package-lock.json
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -39,17 +39,17 @@ jobs:
 
       - name: Test client
         run: |
-          npx --prefix src/Umbraco.WebMCP.StaticAssets playwright install --with-deps chromium
+          npx --prefix src/Umbraco.Community.WebMCP.StaticAssets playwright install --with-deps chromium
           npm run ci:test-client
 
       - name: Build client
         run: npm run ci:build-client
 
       - name: Build
-        run: dotnet build Umbraco.WebMCP.slnx --configuration Release
+        run: dotnet build Umbraco.Community.WebMCP.slnx --configuration Release
 
       - name: Pack
-        run: dotnet pack src/Umbraco.WebMCP/Umbraco.WebMCP.csproj --configuration Release --no-build --output build.out
+        run: dotnet pack src/Umbraco.Community.WebMCP/Umbraco.Community.WebMCP.csproj --configuration Release --no-build --output build.out
 
       - uses: actions/upload-artifact@v4
         with:

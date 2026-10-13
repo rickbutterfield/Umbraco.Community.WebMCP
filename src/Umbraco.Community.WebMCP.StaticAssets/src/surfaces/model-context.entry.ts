@@ -1,7 +1,7 @@
 import { getModelContext, registerTools, umbWebMcpToolHub } from '../model-context.ts';
 import type { UmbEntryPointOnInit, UmbEntryPointOnUnload } from '@umbraco-cms/backoffice/extension-api';
 
-// The WebMCP surface: registers the tools with document.modelContext. Served only when Umbraco:WebMCP:ModelContext
+// The WebMCP surface: registers the tools with document.modelContext. Served only when Umbraco:Community:WebMCP:ModelContext
 // (or Enabled) allows it, separately from the tools themselves.
 
 let detach: (() => void) | undefined;

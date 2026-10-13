@@ -6,8 +6,8 @@ export default defineConfig({
             // One entry point per surface, so the server can serve only the enabled ones. They share the tool hub
             // through a common chunk.
             entry: {
-                "umbraco-webmcp": "src/index.ts",
-                "umbraco-webmcp-model-context": "src/surfaces/model-context.entry.ts",
+                "umbraco-community-webmcp": "src/index.ts",
+                "umbraco-community-webmcp-model-context": "src/surfaces/model-context.entry.ts",
             },
             formats: ["es"],
             fileName: (_format, entryName) => `${entryName}.js`,

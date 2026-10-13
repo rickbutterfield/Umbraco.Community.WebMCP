@@ -8,7 +8,7 @@ const expected = (process.env.BENCH_SURFACES ?? 'model-context').split(',').filt
 test('serves only the enabled surfaces', async ({ page }) => {
 	const scripts: Array<string> = [];
 	page.on('request', (request) => {
-		const match = request.url().match(/\/App_Plugins\/Umbraco\.WebMCP\/umbraco-webmcp(?:-([a-z-]+))?\.js/);
+		const match = request.url().match(/\/App_Plugins\/Umbraco.Community.WebMCP\/umbraco-community-webmcp(?:-([a-z-]+))?\.js/);
 		if (match) scripts.push(match[1] ?? 'tools');
 	});
 

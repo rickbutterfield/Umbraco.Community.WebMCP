@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Title>Umbraco WebMCP</Title>
+    <Title>Umbraco.Community.WebMCP</Title>
     <Description>Development-only WebMCP tools for the Umbraco backoffice, so in-browser agents can inspect and arrange backoffice state.</Description>
   </PropertyGroup>
 
@@ -9,6 +9,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Umbraco.WebMCP.StaticAssets\Umbraco.WebMCP.StaticAssets.csproj" />
+    <ProjectReference Include="..\Umbraco.Community.WebMCP.StaticAssets\Umbraco.Community.WebMCP.StaticAssets.csproj" />
   </ItemGroup>
 </Project>

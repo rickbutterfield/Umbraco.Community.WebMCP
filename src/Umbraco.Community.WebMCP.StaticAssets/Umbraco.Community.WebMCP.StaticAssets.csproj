@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
   <PropertyGroup>
-    <Title>Umbraco WebMCP - Static assets</Title>
-    <Description>Contains the backoffice assets for Umbraco WebMCP.</Description>
-    <StaticWebAssetBasePath>App_Plugins/Umbraco.WebMCP</StaticWebAssetBasePath>
+    <Title>Umbraco.Community.WebMCP - Static assets</Title>
+    <Description>Contains the backoffice assets for Umbraco.Community.WebMCP.</Description>
+    <StaticWebAssetBasePath>App_Plugins/Umbraco.Community.WebMCP</StaticWebAssetBasePath>
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
     <!-- Disable compression for static files, because MapStaticAssets() is not used anyway (yet) -->
     <CompressionEnabled>false</CompressionEnabled>

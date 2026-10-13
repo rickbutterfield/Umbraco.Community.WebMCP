@@ -2,9 +2,9 @@
 
 Guidance for Claude Code when working in this repository.
 
-**Repository**: https://github.com/rickbutterfield/Umbraco-WebMCP
+**Repository**: https://github.com/rickbutterfield/Umbraco.Community.WebMCP
 
-Umbraco WebMCP is a development-only package for the Umbraco 18 backoffice. It registers tools on WebMCP
+Umbraco.Community.WebMCP is a development-only package for the Umbraco 18 backoffice. It registers tools on WebMCP
 (`document.modelContext`), so agents can navigate and arrange backoffice state: sections, trees, workspaces, entity
 actions, create options and modals. Most tools read the backoffice extension
 registry, so they work for packages such as Umbraco Forms without package-specific code.
@@ -34,26 +34,26 @@ carry a "Last checked" date. Recheck and update it when you touch the page.
 
 ```
 src/
-├── Umbraco.WebMCP               # C# package: composer, options, manifest reader
-└── Umbraco.WebMCP.StaticAssets  # Razor class library with the Vite + Lit client (served at /App_Plugins/Umbraco.WebMCP)
+├── Umbraco.Community.WebMCP               # C# package: composer, options, manifest reader
+└── Umbraco.Community.WebMCP.StaticAssets  # Razor class library with the Vite + Lit client (served at /App_Plugins/Umbraco.Community.WebMCP)
 examples/
-└── Umbraco.WebMCP.TestSite      # Dev test site (SQLite, unattended install, includes Umbraco Forms)
+└── Umbraco.Community.WebMCP.TestSite      # Dev test site (SQLite, unattended install, includes Umbraco Forms)
 ```
 
 Root files: `Directory.Build.props` (shared metadata), `Directory.Packages.props` (central package versions; add
 versions there, never on a `PackageReference`), `global.json`, `version.json` (Nerdbank.GitVersioning) and
-`Umbraco.WebMCP.slnx`.
+`Umbraco.Community.WebMCP.slnx`.
 
 ## Build
 
 ```bash
 npm run install-client   # npm install in StaticAssets
-npm run build-client     # tsc + vite build to src/Umbraco.WebMCP.StaticAssets/wwwroot
+npm run build-client     # tsc + vite build to src/Umbraco.Community.WebMCP.StaticAssets/wwwroot
 npm run watch-client     # rebuild on change
 npm run ci:lint-client   # ESLint, errors only
 npm run test-client      # @web/test-runner in Playwright Chromium (*.test.ts next to the source)
-dotnet build Umbraco.WebMCP.slnx
-dotnet run --project examples/Umbraco.WebMCP.TestSite --launch-profile Umbraco.Web.UI
+dotnet build Umbraco.Community.WebMCP.slnx
+dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --launch-profile Umbraco.Web.UI
 ```
 
 `wwwroot` is gitignored, so build the client before `dotnet build`, `dotnet run` or `dotnet pack`, or the site serves
@@ -64,8 +64,8 @@ Open https://localhost:44311/umbraco. The backoffice refuses login over HTTP.
 ## Conventions
 
 - **The manifest is served from C#, not `umbraco-package.json`.** `WebMcpPackageManifestReader` returns the tools'
-  entry point plus one entry point per enabled surface: today `Umbraco:WebMCP:ModelContext` (WebMCP), defaulting to
-  `Umbraco:WebMCP:Enabled`, which defaults to Development only. With no surface enabled it returns nothing. A new surface, such as the Copilot bridge, gets its own entry point
+  entry point plus one entry point per enabled surface: today `Umbraco:Community:WebMCP:ModelContext` (WebMCP), defaulting to
+  `Umbraco:Community:WebMCP:Enabled`, which defaults to Development only. With no surface enabled it returns nothing. A new surface, such as the Copilot bridge, gets its own entry point
   and setting; don't replace this with a static manifest. The manifest's
   `Version` comes from the assembly's informational version, which the CMS uses for cache busting.
 - **Tools run the backoffice's own code, as the logged-in user.** Prefer clicking a modal's real buttons

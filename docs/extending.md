@@ -48,7 +48,7 @@ export { MyOrderWebMcpToolset as api };
 Each tool has a `name`, a `description` written for an agent, an optional JSON Schema `inputSchema`, optional
 `annotations` and an `execute(input, call)` that returns a JSON-serialisable result. `call.signal` aborts when the
 caller cancels; see the guidelines.
-`src/Umbraco.WebMCP.StaticAssets/src/workspace/document.workspace-toolset.ts` is a complete example.
+`src/Umbraco.Community.WebMCP.StaticAssets/src/workspace/document.workspace-toolset.ts` is a complete example.
 
 ## Guidelines
 
@@ -78,7 +78,7 @@ caller cancels; see the guidelines.
   and manifest labels doesn't need it.
 - **Honour `call.signal`.** If your tool waits for a modal, a request or conditions to settle, stop waiting and reject
   with `signal.reason` when the signal aborts. This package's `runWithoutBlocking` and `waitForQuiet`
-  (`src/Umbraco.WebMCP.StaticAssets/src/utils.ts`) show the pattern, including clearing timers. They aren't exported,
+  (`src/Umbraco.Community.WebMCP.StaticAssets/src/utils.ts`) show the pattern, including clearing timers. They aren't exported,
   because packages shouldn't depend on this one. Cancelling ends the wait; it can't undo an action that has started.
 - **Keep a shared name's schema stable.** When the newest registration of a name has a different description or
   input schema, the name is registered with WebMCP again so agents see the change, and the old schema is restored when

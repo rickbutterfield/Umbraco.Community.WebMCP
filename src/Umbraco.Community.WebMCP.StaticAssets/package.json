@@ -1,11 +1,11 @@
 {
-  "name": "@umbraco-webmcp/backoffice",
+  "name": "@umbraco-community-webmcp/backoffice",
   "private": true,
   "author": {
     "name": "Rick Butterfield"
   },
   "bugs": {
-    "url": "https://github.com/rickbutterfield/Umbraco-WebMCP/issues"
+    "url": "https://github.com/rickbutterfield/Umbraco.Community.WebMCP/issues"
   },
   "type": "module",
   "engines": {

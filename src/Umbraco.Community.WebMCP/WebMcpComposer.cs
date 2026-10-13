@@ -3,7 +3,7 @@ using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Infrastructure.Manifest;
 
-namespace Umbraco.WebMCP;
+namespace Umbraco.Community.WebMCP;
 
 /// <summary>
 /// Registers the WebMCP options and the manifest reader that serves the backoffice entry point when enabled.

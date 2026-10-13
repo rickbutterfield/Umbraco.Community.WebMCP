@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const srcDir = join(root, 'src/Umbraco.WebMCP.StaticAssets/src');
+const srcDir = join(root, 'src/Umbraco.Community.WebMCP.StaticAssets/src');
 const snapshotPath = join(root, 'scripts/tool-names.json');
 const verbs = ['click', 'close', 'create', 'get', 'list', 'navigate', 'open', 'run', 'save', 'search', 'set', 'submit'];
 

@@ -9,7 +9,7 @@ everything above it, and so is good at different jobs.
 
 ```
 Rendered UI (DOM, pixels, clicks)          ← Playwright (and Playwright MCP)
-Backoffice app (contexts, actions,         ← Umbraco WebMCP tools (document.modelContext)
+Backoffice app (contexts, actions,         ← Umbraco.Community.WebMCP tools (document.modelContext)
   repositories, router)
 Management API (HTTP)                      ← Umbraco Developer MCP, and API test helpers
 Server (services, database)
@@ -21,7 +21,7 @@ for Playwright.
 
 ## The three layers
 
-| | Umbraco Developer MCP | Umbraco WebMCP (this package) | Playwright |
+| | Umbraco Developer MCP | Umbraco.Community.WebMCP (this package) | Playwright |
 |---|---|---|---|
 | **Enters at** | The Management API | The backoffice app in the open page | The rendered page |
 | **Runs as** | A separate Node process, authenticated as an API user (`UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET`) | The logged-in user, in their browser session | Whoever logged in through the UI |

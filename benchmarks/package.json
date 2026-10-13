@@ -1,5 +1,5 @@
 {
-  "name": "umbraco-webmcp-benchmarks",
+  "name": "umbraco-community-webmcp-benchmarks",
   "private": true,
   "description": "Benchmarks Playwright and agents with and without WebMCP",
   "type": "module",
