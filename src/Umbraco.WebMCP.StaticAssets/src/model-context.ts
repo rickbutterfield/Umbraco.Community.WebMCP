@@ -331,8 +331,14 @@ class UmbWebMcpToolHub {
 					description: modelContextDescription(tool),
 					inputSchema: tool.inputSchema,
 					annotations: { debugging: true, ...tool.annotations },
-					execute: async (input, client) =>
-						JSON.stringify(await this.call(tool.name, input, { signal: client?.signal })),
+					execute: async (input, client) => {
+						try {
+							return JSON.stringify(await this.call(tool.name, input, { signal: client?.signal }));
+						} catch (error) {
+							// WebMCP reports a thrown error as a generic UnknownError, so the agent would never see why
+							return JSON.stringify({ error: error instanceof Error ? error.message : String(error) });
+						}
+					},
 				},
 				{ signal: controller.signal },
 			);

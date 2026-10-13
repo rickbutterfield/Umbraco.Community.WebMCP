@@ -433,6 +433,26 @@ describe('UmbWebMcpToolHub', () => {
 			expect(await registration.execute({})).to.equal('{"ok":true}');
 		});
 
+		it('returns errors to WebMCP instead of throwing, so the agent sees the message', async () => {
+			const name = uniqueName();
+			registerTools(
+				[
+					{
+						name,
+						description: 'Needs a key',
+						inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
+						execute: async () => null,
+					},
+				],
+				new AbortController().signal,
+			);
+
+			const registration = fake.registrations.find((x) => x.name === name)!;
+			expect(JSON.parse(await registration.execute({}))).to.deep.equal({
+				error: `${name} needs key. Its parameters are: key.`,
+			});
+		});
+
 		it('passes the signal WebMCP calls with to the tool', async () => {
 			const name = uniqueName();
 			let seen: AbortSignal | undefined;
