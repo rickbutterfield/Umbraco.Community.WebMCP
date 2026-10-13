@@ -1,0 +1,46 @@
+name: Release
+
+# Publishes both packages to NuGet when a release tag is pushed: release-<version>, matching version.json
+# (for example release-1.0.0-alpha). Uses NuGet trusted publishing, so no API key is stored in the repo.
+
+on:
+  push:
+    tags:
+      - "release-*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # NuGet trusted publishing exchanges the GitHub OIDC token for a short-lived API key
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: build.out
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Run immediately before the push: the key is only valid for an hour.
+      - name: NuGet login (trusted publishing)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet
+        run: >-
+          dotnet nuget push "build.out/*.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
