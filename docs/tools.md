@@ -1,6 +1,6 @@
 # Tools
 
-*Last checked: 08-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026). The annotation names come from
+*Last checked: 13-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026). The annotation names come from
 the draft and may change.*
 
 The tools this package registers, and how to call them. Most tools read the backoffice extension registry, so they
@@ -84,33 +84,29 @@ current user's permissions still apply. The host decides what to do with them; f
   newest one handles calls until it closes. If its description or input schema differs from the one WebMCP holds,
   the name is registered with WebMCP again, and the previous schema comes back when it closes. Schemas that differ
   only in key order count as the same.
-- **Cancelling a call stops the wait, not the work.** WebMCP passes an abort signal with each call, and the page API
-  takes one as a third argument (`call(name, input, { signal })`). A call cancelled before it starts never runs the
-  tool. Once an action has started, cancelling makes the tool return straight away with the abort reason, but the
+- **Cancelling a call stops the wait, not the work.** WebMCP passes an abort signal with each call. A call cancelled
+  before it starts never runs the tool. Once an action has started, cancelling makes the tool return straight away with the abort reason, but the
   action carries on: a save that has started still saves.
 
 ## Calling tools
 
-The same tools are available through two surfaces. Each is its own backoffice entry point with its own setting (see
-the [README](../README.md#enabling)), so enabling one never enables the other:
+The tools are registered with WebMCP (`document.modelContext`). This needs Chrome 149+ with WebMCP switched on; see
+the [README](../README.md#driving-it-from-claude-code) for agents.
 
-- **WebMCP** (`document.modelContext`), for in-browser agents. This needs Chrome 149+ with WebMCP switched on; see
-  the [README](../README.md#driving-it-from-claude-code). In Chrome 154, `document.modelContext.getTools()` lists the
-  tools and `executeTool(tool, inputJson)` runs one; `benchmarks/tests/webmcp` uses them. WebMCP gets only the
-  first sentence of each tool's description, with the full input schema: clients such as Playwright MCP repeat every
-  description in each page snapshot as well as in the agent's tool list, so full descriptions cost an agent thousands
-  of tokens a turn. `umbraco_get_tool_description` returns the rest.
-- **The page API** (`window.__umbWebMcp`), for page scripts. It works with or without the Chrome flag:
+- **WebMCP gets only the first sentence of each description,** with the full input schema. Clients such as Playwright
+  MCP repeat every description in each page snapshot as well as in the agent's tool list, so full descriptions cost
+  an agent thousands of tokens a turn. `umbraco_get_tool_description` returns the rest.
+- **Errors come back as results.** WebMCP reports an `execute` that throws as a generic `UnknownError`, so a failed
+  call resolves with `{ "error": "..." }` instead. A call missing a required parameter names the expected ones.
+- **From a script,** `document.modelContext.getTools()` lists the tools and `executeTool(tool, input)` runs one:
 
   ```js
-  window.__umbWebMcp.list(); // name, one-sentence summary, parameter names and annotations of each tool
-  window.__umbWebMcp.describe('umbraco_save_document'); // one tool in full, with its input schema
-  window.__umbWebMcp.list({ full: true }); // every tool in full
-  await window.__umbWebMcp.call('umbraco_get_tree_items', { treeAlias: 'Forms.Tree.Forms' });
-  await window.__umbWebMcp.call('umbraco_save_document', {}, { signal: AbortSignal.timeout(10_000) });
+  const modelContext = document.modelContext;
+  const tool = (await modelContext.getTools()).find((x) => x.name === 'umbraco_get_tree_items');
+  const result = JSON.parse(await modelContext.executeTool(tool, { treeAlias: 'Forms.Tree.Forms' }));
   ```
 
-  `list()` is short on purpose: agents read it whole, and every input schema in it costs tokens. It gives each tool's
-  parameter names (`input`, with optional ones ending in `?`), and a call missing a required parameter fails with an
-  error that names the expected ones, so agents rarely need `describe`. Use it from
-  Playwright's `page.evaluate`, or from Playwright MCP's `browser_evaluate`.
+  Chrome 155 deprecates passing the input as a JSON string, which Chrome 154 still needs;
+  `benchmarks/tests/webmcp-tools.ts` handles both. In a browser without WebMCP, such as Playwright's bundled
+  Chromium, load [Google's WebMCP polyfill](https://github.com/GoogleChromeLabs/webmcp-tools) first
+  (`benchmarks/tests/webmcp/webmcp-polyfill.js`, with `page.addInitScript`).

@@ -7,7 +7,7 @@ using Umbraco.Cms.Infrastructure.Manifest;
 namespace Umbraco.WebMCP;
 
 /// <summary>
-/// Supplies the backoffice entry points: the tools, plus one entry point per enabled surface (WebMCP and the page API).
+/// Supplies the backoffice entry points: the tools, plus one entry point per enabled surface (WebMCP).
 /// When no surface is enabled, nothing is supplied, so the tools never load in environments that didn't opt in.
 /// </summary>
 internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
@@ -31,11 +31,6 @@ internal sealed class WebMcpPackageManifestReader : IPackageManifestReader
         if (options.ModelContext ?? defaultEnabled)
         {
             surfaces.Add(EntryPoint("ModelContext", "WebMCP Model Context Entry Point", "umbraco-webmcp-model-context.js"));
-        }
-
-        if (options.PageApi ?? defaultEnabled)
-        {
-            surfaces.Add(EntryPoint("PageApi", "WebMCP Page API Entry Point", "umbraco-webmcp-page-api.js"));
         }
 
         if (surfaces.Count == 0)

@@ -1,12 +1,12 @@
 import { expect, type Page } from '@playwright/test';
 import { ConstantHelper, test, type UiHelpers } from '@umbraco-cms/acceptance-test-helpers';
-import { callTool } from '../page-api';
+import { callTool } from '../webmcp-tools';
 
 // Adapted from Umbraco-CMS tests/Umbraco.Tests.AcceptanceTest/tests/DefaultConfig/Content/Content.spec.ts (MIT).
 // Each test runs three ways, and only the Act step differs:
 // - ui: the original clicks
-// - hybrid: the page API navigates; the step under test (typing, Save) still goes through the UI
-// - tools: everything through the page API. An upper bound on speed, but it no longer tests the UI
+// - hybrid: WebMCP tools navigate; the step under test (typing, Save) still goes through the UI
+// - tools: everything through WebMCP tools. An upper bound on speed, but it no longer tests the UI
 // The audit trail checks are left out: they test the UI after the step and would be the same in every variant.
 
 const contentName = 'TestContent';

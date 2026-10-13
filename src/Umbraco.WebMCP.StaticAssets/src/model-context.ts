@@ -77,7 +77,7 @@ function stableStringify(value: unknown): string {
 
 /**
  * A tool's input parameters in one short line, such as "entityType, unique, alias, section?": optional ones end in ?.
- * Agents read this from list() instead of guessing names; describe() has the full schema.
+ * Errors for a missing parameter end with this, because agents guess names.
  */
 export function summariseInput(inputSchema?: object) {
 	const schema = inputSchema as { properties?: Record<string, unknown>; required?: Array<string> } | undefined;
@@ -126,9 +126,9 @@ function schemaOf(tool: UmbWebMcpTool) {
 }
 
 /**
- * Holds every registered tool and exposes each name once, to WebMCP when its surface is attached and the browser
- * supports it, and to the page API (`window.__umbWebMcp`) when that surface is enabled. When two registrations share a
- * name (for example a document open in a modal on top of another document), the newest one handles calls until it is
+ * Holds every registered tool and exposes each name once to WebMCP, when its surface is attached and the browser
+ * supports it. When two registrations share a name (for example a document open in a modal on top of another
+ * document), the newest one handles calls until it is
  * aborted, then the previous one takes over. WebMCP keeps the description and input schema it was registered with, so
  * when the handling registration's schema differs, the name is registered again with the current one.
  */
@@ -238,18 +238,6 @@ class UmbWebMcpToolHub {
 
 	list() {
 		return [...this.#stacks.keys()].map((name) => this.describe(name));
-	}
-
-	/**
-	 * Each tool's name, the first sentence of its description and its annotations: enough to choose a tool without
-	 * paying for every input schema. Use `describe` for the rest.
-	 */
-	summarise() {
-		return [...this.#stacks.keys()].map((name) => {
-			const { description, inputSchema, annotations } = this.describe(name);
-			const input = summariseInput(inputSchema);
-			return { name, summary: firstSentence(description), ...(input ? { input } : {}), annotations };
-		});
 	}
 
 	/**
@@ -389,23 +377,6 @@ export function registerToolsInSection(sectionPathname: string, tools: Array<Umb
 	window.addEventListener('changestate', update, { signal });
 	window.addEventListener('popstate', update, { signal });
 	update();
-}
-
-/**
- * Exposes the same tools to page scripts, so Playwright (`page.evaluate`, Playwright MCP's `browser_evaluate`) and
- * browsers without WebMCP can call them. Only called when the page API surface is enabled.
- *
- * `list()` is kept short, because agents read it whole: each tool's name, one-sentence summary, parameter names and
- * annotations.
- * `describe(name)` returns a tool's full description and input schema, and `list({ full: true })` returns them all.
- */
-export function exposePageApi() {
-	(window as any).__umbWebMcp = {
-		list: ({ full = false }: { full?: boolean } = {}) =>
-			full ? umbWebMcpToolHub.list() : umbWebMcpToolHub.summarise(),
-		describe: (name: string) => umbWebMcpToolHub.describe(name),
-		call: (name: string, input?: object, call?: UmbWebMcpToolCall) => umbWebMcpToolHub.call(name, input, call),
-	};
 }
 
 const WORKSPACE_PATH = /\/workspace\//;

@@ -3,51 +3,37 @@
 Development-only [WebMCP](https://developer.chrome.com/docs/ai/webmcp) tools for the Umbraco 18 backoffice. Once
 you're logged in, the backoffice registers tools that an agent can call directly to navigate and arrange backoffice
 state: sections, trees, workspaces, entity actions, create options and modals. No snapshot-and-click is needed. The
-tools are available on WebMCP (`document.modelContext`) for in-browser agents, and on the page API
-(`window.__umbWebMcp`) for page scripts such as Playwright.
+tools are registered with WebMCP (`document.modelContext`), for agents and for scripted tests.
 
 The tools are for **arranging and inspecting** backoffice state. They don't replace UI testing, because a tool call
 skips the buttons, modals and routing a user would go through.
 
 ## Benchmarks
 
-Measured on 08-10-2026 (content, CMS 18.1) and 09-10-2026 (Umbraco Forms, CMS and Forms 18.2.1) on one machine. See
-[benchmarks/RESULTS.md](benchmarks/RESULTS.md) for the method, per-test numbers, how the numbers moved as the tools
-improved, and caveats.
+With and without WebMCP, measured on 13-10-2026 on one machine (Umbraco CMS and Forms 18.2.1, Chrome 154). See
+[benchmarks/RESULTS.md](benchmarks/RESULTS.md) for per-test numbers and caveats, and
+[benchmarks/README.md](benchmarks/README.md) for the method.
 
-**Scripted Playwright tests**: median time of the step under test, 10 runs of each test.
+**Scripted Playwright tests**: total of the median times of the step under test, 10 runs of each test, all passing.
 
-| Tests | Playwright, clicking | Page API to navigate, clicks for the step under test | Page API only (no longer tests the UI) |
+| Tests | Without WebMCP (clicking) | WebMCP to navigate, clicks for the step under test | WebMCP only (no longer tests the UI) |
 |---|---|---|---|
-| 5 CMS content tests | 3.84 s | 3.64 s (−5%) | 3.03 s (−21%) |
-| 3 Forms tests | 8.24 s | 4.62 s (−44%) | 3.35 s (−59%) |
+| 5 CMS content tests | 18.8 s | 18.0 s (−4%) | 14.8 s (−21%) |
+| 3 Forms tests | 17.8 s | 11.4 s (−36%) | 8.4 s (−53%) |
 
-**An agent doing a task** (Claude Sonnet through Playwright MCP): 5 runs of each task.
+**An agent doing a task** (Claude Sonnet in Chrome): 3 runs of each task; medians of turns and time, mean cost,
+totalled over four tasks. The Forms tasks use the example Forms toolset.
 
-| Tasks | Measure | Playwright only, clicking | Playwright + page API | Difference |
-|---|---|---|---|---|
-| 4 content tasks | Turns (median) | 10 | 8 | −20% |
-| | Time (median) | 27 s | 29 s | +7% |
-| | Cost (mean) | $0.054 | $0.049 | −9% |
-| 4 Forms tasks (+ the example Forms toolset) | Turns (median) | 20 | 11 | −45% |
-| | Time (median) | 52 s | 41 s | −21% |
-| | Cost (mean) | $0.168 | $0.084 | −50% |
-
-**Through real WebMCP** (Chrome 154 with WebMCP on; Playwright MCP gives the agent the page's tools as its own): about 2
-runs of each task, 19 in all, every one passed.
-
-| Tasks | Playwright only, clicking | Playwright + page API | Playwright + WebMCP tools |
+| Tasks | Without WebMCP (Playwright MCP, clicking) | With WebMCP, Playwright MCP | With WebMCP, Chrome DevTools MCP |
 |---|---|---|---|
-| 4 content tasks | 10 turns, 27 s, $0.054 | 8 turns, 29 s, $0.049 | 10 turns, 29 s, $0.128 |
-| 4 Forms tasks | 20 turns, 52 s, $0.168 | 11 turns, 41 s, $0.084 | 13 turns, 36 s, $0.141 |
+| 4 content tasks | 40 turns, 123 s, $0.178 | 34 turns, 108 s, $0.382 | 43 turns, 80 s, $0.228 |
+| 4 Forms tasks | 97 turns, 235 s, $0.558 | 44 turns, 148 s, $0.397 | 63 turns, 149 s, $0.375 |
 
-Every approach passed nearly every run (the few failures came from the test site's SQLite database, not the
-approach). On simple content tasks the page API saves a little; on a complex editor like the Forms designer, with a
-small product toolset, it halves an agent's turns and cost and more than halves a scripted test's time. Through real
-WebMCP the tools are as fast but cost far more, because every tool definition stays in the agent's context on every
-turn; shortening descriptions or snapshots didn't change that. Running actions by label and registering tools only in
-the section they apply to later made WebMCP the fastest approach and cut its cost to about 1.6 times the page API's;
-see [benchmarks/RESULTS.md](benchmarks/RESULTS.md#verdict) for every step.
+On simple content tasks WebMCP makes an agent quicker but not cheaper, and saves scripted tests little. On a complex
+editor like the Forms designer, with a small product toolset, it halves an agent's turns and cuts its cost by about a
+third, and cuts a scripted test's time by a third to a half. The client matters: Chrome DevTools MCP, which lists the
+page's tools when the agent asks, was the cheapest and fastest overall; Playwright MCP, which gives the agent every page
+tool as its own, rewrites its cached prompt whenever the tools change. Picker modals are the main gap.
 
 ## Documentation
 
@@ -61,22 +47,22 @@ see [benchmarks/RESULTS.md](benchmarks/RESULTS.md#verdict) for every step.
 
 ## Enabling
 
-The tools are reachable through two surfaces, WebMCP and the page API. Each is a separate backoffice entry point
-with its own setting, and by default both are only served in the `Development` environment:
+The tools reach agents through WebMCP, a separate backoffice entry point with its own setting. By default it's only
+served in the `Development` environment:
 
 ```json
-{ "Umbraco": { "WebMCP": { "Enabled": true, "ModelContext": true, "PageApi": false } } }
+{ "Umbraco": { "WebMCP": { "Enabled": true, "ModelContext": true } } }
 ```
 
 - `Enabled` is the default for every surface.
 - `ModelContext` registers the tools with WebMCP (`document.modelContext`).
-- `PageApi` exposes `window.__umbWebMcp` to page scripts.
 
 When no surface is enabled, nothing is loaded. `benchmarks/tests/surfaces` checks which entry points a running site
 serves.
 
 Chrome needs WebMCP switched on: Chrome 149+ with `chrome://flags/#enable-webmcp-testing`, or launched with
-`--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport`. The page API works without it.
+`--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport`. For scripted tests in a browser without it, load
+[Google's WebMCP polyfill](https://github.com/GoogleChromeLabs/webmcp-tools) first, as `benchmarks/tests/webmcp` does.
 
 ## Driving it from Claude Code
 
@@ -86,7 +72,15 @@ claude mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest \
   --chromeArg=--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport
 ```
 
-Log in to the backoffice, then use `list_webmcp_tools` and `call_webmcp_tool`.
+Log in to the backoffice, then use `list_webmcp_tools` and `execute_webmcp_tool`.
+
+Playwright MCP also picks up the tools a page registers, giving the agent each one as its own `webmcp_<tool name>`
+tool, when it launches Chrome with WebMCP switched on:
+
+```bash
+echo '{ "browser": { "launchOptions": { "args": ["--enable-features=WebMCP,WebMCPTesting"] } } }' > playwright-mcp.json
+claude mcp add playwright -- npx -y @playwright/mcp@latest --browser chrome --config playwright-mcp.json
+```
 
 ## Running locally
 

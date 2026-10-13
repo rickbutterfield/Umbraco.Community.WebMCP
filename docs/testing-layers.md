@@ -1,6 +1,6 @@
 # Umbraco MCP, WebMCP and Playwright: where each fits
 
-*Last checked: 08-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026), Chrome 149+ (end to end in Chrome 154), the Umbraco Developer MCP README and this repo's benchmark ([benchmarks/RESULTS.md](../benchmarks/RESULTS.md)).*
+*Last checked: 13-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026), Chrome 149+ (end to end in Chrome 154), the Umbraco Developer MCP README and this repo's benchmark ([benchmarks/RESULTS.md](../benchmarks/RESULTS.md)).*
 
 For uses beyond testing, see [Why WebMCP, beyond testing](why-webmcp.md).
 
@@ -9,8 +9,8 @@ everything above it, and so is good at different jobs.
 
 ```
 Rendered UI (DOM, pixels, clicks)          ← Playwright (and Playwright MCP)
-Backoffice app (contexts, actions,         ← Umbraco WebMCP tools (via WebMCP in Chrome,
-  repositories, router)                       or the window.__umbWebMcp page API)
+Backoffice app (contexts, actions,         ← Umbraco WebMCP tools (document.modelContext)
+  repositories, router)
 Management API (HTTP)                      ← Umbraco Developer MCP, and API test helpers
 Server (services, database)
 ```
@@ -78,7 +78,7 @@ mislabelled.
 - **The markup doesn't change.** The only exception is a hidden `<umb-webmcp-entity-host>` element inside
   `umb-backoffice` while an entity action runs.
 - **The tools live in JavaScript:** `document.modelContext`, which Chrome 149+ shows in DevTools under Application →
-  WebMCP, and `window.__umbWebMcp.list()` (with `describe(name)` for one tool's input schema).
+  WebMCP, or `await document.modelContext.getTools()` in the console.
 - **Annotations are hints to the agent,** not restrictions.
 - **WebMCP's declarative API is different:** it adds `toolname` attributes to HTML forms and does change markup. It
   suits front-end forms, not the backoffice.
@@ -91,9 +91,9 @@ mislabelled.
 3. **Test the step that matters** with Playwright: click Save, then check the notification, the validation message
    or the rendering.
 
-The page API (`window.__umbWebMcp`) is what lets one Playwright session use both of the top two layers: call tools with
-`page.evaluate`, or with Playwright MCP's `browser_evaluate`. For testing, the WebMCP standard itself is optional;
-the page API doesn't depend on it, so Chrome flags and spec changes don't affect this use.
+One Playwright session can use both of the top two layers by calling the tools from `page.evaluate`, through
+`document.modelContext.getTools()` and `executeTool()` (see `benchmarks/tests/webmcp-tools.ts`). Run it in Google
+Chrome with WebMCP switched on, or in Playwright's bundled Chromium with Google's WebMCP polyfill loaded first.
 
 ## Where this pays off: a product acceptance suite
 
@@ -130,23 +130,18 @@ The payoff we expected to be bigger is agent-driven work. Measured on short cont
 
 ### What the benchmark showed
 
-On 08-10-2026, `benchmarks/` ran five CMS content acceptance tests and four agent tasks (create, publish, rename and
-trash a page) with and without the page API. Full numbers and method are in
+On 13-10-2026, `benchmarks/` ran five CMS content tests and three Forms tests, scripted, and eight agent tasks (four
+content, four Forms), with and without WebMCP. Full numbers and method are in
 [benchmarks/RESULTS.md](../benchmarks/RESULTS.md).
 
-- **Scripted tests:** using the tools only to navigate cut the step under test by 5%, a fraction of a second, with
-  slightly steadier timings. Doing everything through the tools cut it by 21%, but those tests no longer test the
-  UI. Everything passed either way.
-- **Agents (Claude Sonnet):** about 20% fewer turns and 10% lower cost, at the same speed, because each tool call is
-  still a model round trip. The clicking-only numbers moved 10-15% between rounds with no code change, so this is a
-  hint, not proof.
-- **Most of the value came from what the benchmark found:** a race between workspace tools and the workspace loading
-  (1 run in 10 failed), 10 s waits when the backoffice reused an open workspace, and agents guessing parameter names
-  from a short tool list. Before those fixes, agents with the page API were slower and more expensive than clicking.
+- **Scripted tests:** using WebMCP only to navigate cut the step under test by 4% on content and 36% on Forms.
+  Doing everything through WebMCP cut it by 21% and 53%, but those tests no longer test the UI. All 240 runs passed.
+- **Agents (Claude Sonnet):** on content tasks, WebMCP made the agent quicker but not cheaper. On the Forms tasks,
+  with the example Forms toolset, it halved the turns and cut the cost by about a third, and building a form took a
+  quarter to a third of the turns. Which WebMCP client the agent uses changes the cost a lot.
 
 **Verdict:** on short, well-trodden flows the tools don't justify themselves on speed or cost. On a complex editor
-they do: on 09-10-2026, with a small example Forms toolset, agents building and extending forms needed half the turns
-and half the cost of clicking, and a fifth of the turns to build a form from scratch. The generic tools alone were about
-even on Forms' modals and worse on its "Move to" picker, because setting a picker's value doesn't update its selection.
-So the gain comes from product toolsets for complex editors; a picker tool is the main gap in the generic ones. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
+they do, but the gain comes from a product toolset for that editor; the generic tools alone don't edit a form's design.
+Picker modals are the main gap in the generic tools: setting the "Move to" picker's value doesn't update its
+selection, so agents moving a form still click. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
 named tools with approval on consequential calls are safer for editors than an agent clicking, whatever the speed.

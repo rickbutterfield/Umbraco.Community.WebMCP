@@ -10,9 +10,8 @@ Terms used across this repository's code and docs. Use these words, and only wit
 | **Tool hub** | The in-page registry of tools (`umbWebMcpToolHub`). It exposes each tool name once, and when two registrations share a name, the newest one handles calls. |
 | **Toolset** | A backoffice extension that provides tools: `webMcpToolset` (available anywhere) or `webMcpWorkspaceToolset` (while a matching workspace is open). See [Adding tools from a package](extending.md). |
 | **Generic tools** | The tools this package provides for any section, tree, workspace, action or modal, discovered from the extension registry, as opposed to product-specific toolsets. |
-| **Page API** | `window.__umbWebMcp`, with `list()`, `describe(name)` and `call(name, input)`, for page scripts such as Playwright. Not to be confused with the Copilot bridge. |
 | **Copilot bridge** | The planned feature that offers this package's tools to the Umbraco.AI Copilot as frontend tools. See [docs/plans/copilot-bridge](plans/copilot-bridge/README.md). |
-| **Surface** | One way the tools reach an agent: WebMCP, the page API or the Copilot bridge. Each surface has its own switch for whether it loads in production. |
+| **Surface** | One way the tools reach an agent: WebMCP or the Copilot bridge. Each surface has its own switch for whether it loads in production. |
 | **Landmarks and controls** | The mental model for the tools. Landmarks are where you can go (sections, menus, trees, workspaces); controls are what you can do there (entity actions, create options, workspace actions, modal buttons). A metaphor, not ARIA: these aren't ARIA landmark roles or HTML controls, though they play the same part for an agent that those play for a screen reader user. |
 | **Tool name** | `umbraco_<verb>_<thing>`, verb first, for example `umbraco_list_modals`. `scripts/check-tool-names.mjs` checks the shape and compares the set against `scripts/tool-names.json`. |
 | **Read-only / consequential** | The `readOnlyHint` and `consequentialHint` annotations: a tool that only reads, or one that changes data and should be confirmed. They're hints, not restrictions. |

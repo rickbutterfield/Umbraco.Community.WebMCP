@@ -24,10 +24,4 @@ public class WebMcpOptions
     /// follows <see cref="Enabled"/>.
     /// </summary>
     public bool? ModelContext { get; set; }
-
-    /// <summary>
-    /// Whether the tools are exposed to page scripts as <c>window.__umbWebMcp</c>, for Playwright and similar. When
-    /// unset, follows <see cref="Enabled"/>.
-    /// </summary>
-    public bool? PageApi { get; set; }
 }

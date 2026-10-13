@@ -8,7 +8,6 @@ export default defineConfig({
             entry: {
                 "umbraco-webmcp": "src/index.ts",
                 "umbraco-webmcp-model-context": "src/surfaces/model-context.entry.ts",
-                "umbraco-webmcp-page-api": "src/surfaces/page-api.entry.ts",
             },
             formats: ["es"],
             fileName: (_format, entryName) => `${entryName}.js`,

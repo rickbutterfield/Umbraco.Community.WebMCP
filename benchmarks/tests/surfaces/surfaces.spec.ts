@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 // Checks which surfaces the server served, for the settings the site was started with. Run with BENCH_SURFACES set to
-// the expected entry points, for example "model-context,page-api" (the Development default) or "model-context".
+// the expected entry points, for example "model-context" (the Development default) or "" for none.
 
-const expected = (process.env.BENCH_SURFACES ?? 'model-context,page-api').split(',').filter(Boolean);
+const expected = (process.env.BENCH_SURFACES ?? 'model-context').split(',').filter(Boolean);
 
 test('serves only the enabled surfaces', async ({ page }) => {
 	const scripts: Array<string> = [];
@@ -17,7 +17,4 @@ test('serves only the enabled surfaces', async ({ page }) => {
 	await page.waitForTimeout(2000);
 
 	expect(scripts.sort()).toEqual(expected.length ? ['tools', ...expected].sort() : []);
-	expect(await page.evaluate(() => typeof (window as any).__umbWebMcp)).toBe(
-		expected.includes('page-api') ? 'object' : 'undefined',
-	);
 });

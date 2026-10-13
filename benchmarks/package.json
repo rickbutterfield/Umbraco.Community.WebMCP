@@ -1,7 +1,7 @@
 {
   "name": "umbraco-webmcp-benchmarks",
   "private": true,
-  "description": "Benchmarks Playwright through the UI against Playwright with the page API, and agents with and without it",
+  "description": "Benchmarks Playwright and agents with and without WebMCP",
   "type": "module",
   "scripts": {
     "setup": "playwright test --project=setup",

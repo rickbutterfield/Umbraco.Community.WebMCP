@@ -17,7 +17,7 @@ const abortController = new AbortController();
 let toolsetAbortController: AbortController | undefined;
 
 // The tools themselves. They only become reachable through a surface, each its own entry point that the server serves
-// only when that surface is enabled: surfaces/model-context.entry.ts (WebMCP) and surfaces/page-api.entry.ts.
+// only when that surface is enabled: surfaces/model-context.entry.ts (WebMCP).
 export const onInit: UmbEntryPointOnInit = (host, extensionRegistry) => {
 	new UmbWebMcpNotificationWatcher(host);
 	registerTools(

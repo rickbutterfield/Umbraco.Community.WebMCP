@@ -2,7 +2,7 @@ import { getModelContext, registerTools, umbWebMcpToolHub } from '../model-conte
 import type { UmbEntryPointOnInit, UmbEntryPointOnUnload } from '@umbraco-cms/backoffice/extension-api';
 
 // The WebMCP surface: registers the tools with document.modelContext. Served only when Umbraco:WebMCP:ModelContext
-// (or Enabled) allows it, separately from the page API and the tools themselves.
+// (or Enabled) allows it, separately from the tools themselves.
 
 let detach: (() => void) | undefined;
 const abortController = new AbortController();

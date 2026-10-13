@@ -1,41 +1,14 @@
-import { expect, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { ConstantHelper, test } from '@umbraco-cms/acceptance-test-helpers';
 import path from 'node:path';
+import { callTool as callWebMcp, webMcpToolNames } from '../webmcp-tools';
 
-// Drives the tools through WebMCP (document.modelContext), not the page API. The webmcp project uses Chrome's own
-// implementation (Google Chrome 149 or later, launched with WebMCP switched on); webmcp-polyfill runs the same tests in
-// Playwright's bundled Chromium with Google's polyfill. getTools() returns the registered tools and
-// executeTool(tool, input) runs one and resolves with its JSON result. Chrome 155 deprecates passing the input as a
-// JSON string, which Chrome 154 still needs, so callWebMcp tries an object first.
+// Checks the tools through WebMCP (document.modelContext). The webmcp project uses Chrome's own implementation
+// (Google Chrome 149 or later, launched with WebMCP switched on); webmcp-polyfill runs the same tests in Playwright's
+// bundled Chromium with Google's polyfill.
 
 const documentTypeName = 'WebMcpE2eDocumentType';
 const documentName = 'WebMCP end-to-end page';
-
-async function webMcpToolNames(page: Page): Promise<Array<string>> {
-	return page.evaluate(async () => (await (document as any).modelContext.getTools()).map((tool: any) => tool.name));
-}
-
-/**
- * Calls a tool through WebMCP, waiting until it is registered, because workspace tools only appear once their
- * workspace has loaded.
- */
-async function callWebMcp(page: Page, name: string, input: object = {}) {
-	await expect.poll(() => webMcpToolNames(page), { message: `Waiting for ${name} on WebMCP` }).toContain(name);
-	return page.evaluate(
-		async ({ name, input }) => {
-			const modelContext = (document as any).modelContext;
-			const tool = (await modelContext.getTools()).find((x: any) => x.name === name);
-			try {
-				return JSON.parse(await modelContext.executeTool(tool, input));
-			} catch (error) {
-				// Only a Chrome that still wants a JSON string; anything else is a real failure
-				if (!String((error as Error)?.message).startsWith('Failed to parse input')) throw error;
-				return JSON.parse(await modelContext.executeTool(tool, JSON.stringify(input)));
-			}
-		},
-		{ name, input },
-	);
-}
 
 test.beforeEach(async ({ page, umbracoApi, umbracoUi }, testInfo) => {
 	if (testInfo.project.name === 'webmcp-polyfill') {

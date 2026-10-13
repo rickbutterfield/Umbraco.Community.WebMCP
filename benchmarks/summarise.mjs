@@ -91,7 +91,7 @@ function summariseAgent() {
 	const tokens = (r) =>
 		(r.inputTokens ?? 0) + (r.cacheReadTokens ?? 0) + (r.cacheCreationTokens ?? 0) + (r.outputTokens ?? 0);
 
-	lines.push('## Agent: the same tasks, with and without the page API', '');
+	lines.push('## Agent: the same tasks, with and without WebMCP', '');
 	lines.push(`Models: ${[...new Set(runs.map((r) => r.model))].join(', ')}.`, '');
 	lines.push('| Case | Variant | Runs | Passed | Median turns | Median time (s) | Median tokens | Mean cost (USD) |');
 	lines.push('|---|---|---|---|---|---|---|---|');

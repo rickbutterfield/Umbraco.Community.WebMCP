@@ -1,14 +1,14 @@
 import { expect, type Page } from '@playwright/test';
 import { test, type UiHelpers } from '@umbraco-cms/acceptance-test-helpers';
 import { BENCH_FORM, FormsApi } from '../agent/forms-api';
-import { callTool } from '../page-api';
+import { callTool } from '../webmcp-tools';
 
 // Three Umbraco Forms tests modelled on Forms' own acceptance suite ("Creates a form with a short answer field",
 // "Deletes a form" and "Creates a form with multiple pages and groups"), with our own steps, run three ways like
 // content.spec.ts. Only the Act step differs:
 // - ui: clicks, including Forms' hover-to-create menu and the form designer
-// - hybrid: the page API navigates (create option, entity action); the designer, Save and the confirmation are clicked
-// - tools: everything through the page API, with the example Forms toolset for the designer
+// - hybrid: WebMCP tools navigate (create option, entity action); the designer, Save and the confirmation are clicked
+// - tools: everything through WebMCP tools, with the example Forms toolset for the designer
 // Written against Umbraco Forms 18.2.1.
 
 const SHORT_ANSWER = '3f92e01b-29e2-4a30-bf33-9df5580ed52c';

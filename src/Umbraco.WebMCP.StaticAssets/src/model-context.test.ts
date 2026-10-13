@@ -1,7 +1,6 @@
 import { expect } from '@open-wc/testing';
 import {
 	checkInput,
-	exposePageApi,
 	firstSentence,
 	openPath,
 	registerTools,
@@ -192,17 +191,6 @@ describe('UmbWebMcpToolHub', () => {
 			expect(seen.signal).to.equal(controller.signal);
 		});
 
-		it('passes the signal through the page API', async () => {
-			const name = uniqueName();
-			const { catcher, seen } = signalCatcher(name);
-			registerTools([catcher], new AbortController().signal);
-			exposePageApi();
-			const controller = new AbortController();
-			await (window as any).__umbWebMcp.call(name, {}, { signal: controller.signal });
-
-			expect(seen.signal).to.equal(controller.signal);
-		});
-
 		it('does not call the tool when the signal has already aborted', async () => {
 			const name = uniqueName();
 			const { catcher, seen } = signalCatcher(name);
@@ -351,18 +339,15 @@ describe('UmbWebMcpToolHub', () => {
 			expect(forName(name)).to.have.length(1);
 		});
 
-		it('lists the handling registration in the page API', () => {
+		it('describes the handling registration', () => {
 			const name = uniqueName();
 			registerTools([describedTool(name, 'Older description')], new AbortController().signal);
 			const newer = new AbortController();
 			registerTools([describedTool(name, 'Newer description')], newer.signal);
-			exposePageApi();
-			const listed = () =>
-				(window as any).__umbWebMcp.list({ full: true }).find((x: { name: string }) => x.name === name);
 
-			expect(listed().description).to.equal('Newer description');
+			expect(umbWebMcpToolHub.describe(name).description).to.equal('Newer description');
 			newer.abort();
-			expect(listed().description).to.equal('Older description');
+			expect(umbWebMcpToolHub.describe(name).description).to.equal('Older description');
 		});
 	});
 
@@ -567,74 +552,23 @@ describe('UmbWebMcpToolHub', () => {
 		});
 	});
 
-	describe('page API', () => {
-		const pageApi = () => (window as any).__umbWebMcp;
-
-		it('lists each tool with a one-sentence summary and no input schema', () => {
-			const name = uniqueName();
-			registerTools(
-				[
-					{
-						...describedTool(name, 'Opens a thing. Then does more.', { type: 'object' }),
-						annotations: { readOnlyHint: true },
-					},
-				],
-				new AbortController().signal,
-			);
-			exposePageApi();
-
-			expect(
-				pageApi()
-					.list()
-					.find((x: { name: string }) => x.name === name),
-			).to.deep.equal({
-				name,
-				summary: 'Opens a thing.',
-				annotations: { readOnlyHint: true },
-			});
-		});
-
+	describe('describing', () => {
 		it('describes one tool in full', () => {
 			const name = uniqueName();
 			registerTools(
 				[describedTool(name, 'Opens a thing. Then does more.', { type: 'object' })],
 				new AbortController().signal,
 			);
-			exposePageApi();
 
-			expect(pageApi().describe(name)).to.deep.include({
+			expect(umbWebMcpToolHub.describe(name)).to.deep.include({
 				name,
 				description: 'Opens a thing. Then does more.',
 				inputSchema: { type: 'object' },
 			});
 		});
 
-		it('lists every tool in full on request', () => {
-			const name = uniqueName();
-			registerTools([describedTool(name, 'Opens a thing.', { type: 'object' })], new AbortController().signal);
-			exposePageApi();
-
-			expect(
-				pageApi()
-					.list({ full: true })
-					.find((x: { name: string }) => x.name === name).inputSchema,
-			).to.deep.equal({
-				type: 'object',
-			});
-		});
-
 		it('rejects describing an unknown tool', () => {
-			exposePageApi();
-
-			expect(() => pageApi().describe(uniqueName())).to.throw(/No WebMCP tool/);
-		});
-
-		it('calls tools through window.__umbWebMcp', async () => {
-			const name = uniqueName();
-			registerTools([tool(name, 'via page API')], new AbortController().signal);
-			exposePageApi();
-
-			expect(await (window as any).__umbWebMcp.call(name)).to.equal('via page API');
+			expect(() => umbWebMcpToolHub.describe(uniqueName())).to.throw(/No WebMCP tool/);
 		});
 	});
 });

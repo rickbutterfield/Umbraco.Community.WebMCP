@@ -5,16 +5,16 @@ Guidance for Claude Code when working in this repository.
 **Repository**: https://github.com/rickbutterfield/Umbraco-WebMCP
 
 Umbraco WebMCP is a development-only package for the Umbraco 18 backoffice. It registers tools on WebMCP
-(`document.modelContext`) and on the page API (`window.__umbWebMcp`), so agents can navigate and arrange backoffice state:
-sections, trees, workspaces, entity actions, create options and modals. Most tools read the backoffice extension
+(`document.modelContext`), so agents can navigate and arrange backoffice state: sections, trees, workspaces, entity
+actions, create options and modals. Most tools read the backoffice extension
 registry, so they work for packages such as Umbraco Forms without package-specific code.
 
 The layout follows the Umbraco DXP product repositories (Forms, Workflow, Engage and others).
 
 ## Documentation
 
-Use the terms in `docs/vocabulary.md`. In particular, "page API" is `window.__umbWebMcp` and "Copilot bridge" is the
-Umbraco.AI integration; never call either of them just "the bridge".
+Use the terms in `docs/vocabulary.md`. In particular, "Copilot bridge" is the Umbraco.AI integration; never call it just
+"the bridge".
 
 | File | Kind | Keep it in step when |
 |---|---|---|
@@ -64,9 +64,8 @@ Open https://localhost:44311/umbraco. The backoffice refuses login over HTTP.
 ## Conventions
 
 - **The manifest is served from C#, not `umbraco-package.json`.** `WebMcpPackageManifestReader` returns the tools'
-  entry point plus one entry point per enabled surface: `Umbraco:WebMCP:ModelContext` (WebMCP) and
-  `Umbraco:WebMCP:PageApi` (the page API), each defaulting to `Umbraco:WebMCP:Enabled`, which defaults to Development
-  only. With no surface enabled it returns nothing. A new surface, such as the Copilot bridge, gets its own entry point
+  entry point plus one entry point per enabled surface: today `Umbraco:WebMCP:ModelContext` (WebMCP), defaulting to
+  `Umbraco:WebMCP:Enabled`, which defaults to Development only. With no surface enabled it returns nothing. A new surface, such as the Copilot bridge, gets its own entry point
   and setting; don't replace this with a static manifest. The manifest's
   `Version` comes from the assembly's informational version, which the CMS uses for cache busting.
 - **Tools run the backoffice's own code, as the logged-in user.** Prefer clicking a modal's real buttons
