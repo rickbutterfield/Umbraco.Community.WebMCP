@@ -87,7 +87,7 @@ export function createDocumentTools(host: UmbControllerHost): Array<UmbWebMcpToo
 			name: 'umbraco_create_document',
 			title: 'Create a document',
 			description:
-				'Creates a document in one call: opens a new document of the given type, sets its name and property values, then saves it (or saves and publishes it). Returns what the save returned. For documents that vary by culture or segment, use umbraco_open_new_document and the document tools instead.',
+				'Creates a document in one call: opens a new document of the given type, sets its name and property values, then saves it (or saves and publishes it). Returns what the save returned. For a document type that varies by culture, pass names (and culturedValues) per culture instead of name: the cultures named are saved or published. For segments, use umbraco_open_new_document and the document tools instead.',
 			annotations: { consequentialHint: true, untrustedContentHint: true },
 			inputSchema: {
 				type: 'object',
@@ -100,25 +100,38 @@ export function createDocumentTools(host: UmbControllerHost): Array<UmbWebMcpToo
 						type: 'string',
 						description: 'The key of the parent document. Omit to create at the content root.',
 					},
-					name: { type: 'string' },
+					name: { type: 'string', description: 'The name, for a document type that does not vary by culture.' },
+					names: {
+						type: 'object',
+						description: 'Names by culture, for a document type that varies by culture, such as { "en-US": "Hello", "da": "Hej" }.',
+					},
 					values: {
 						type: 'object',
-						description: 'Property values by alias, each in the property editor stored format, such as { "title": "Hello" }.',
+						description:
+							'Property values by alias that do not vary by culture, each in the property editor stored format, such as { "title": "Hello" }.',
+					},
+					culturedValues: {
+						type: 'object',
+						description: 'Property values that vary by culture, by culture then alias, such as { "da": { "title": "Hej" } }.',
 					},
 					publish: { type: 'boolean', description: 'Save and publish instead of only saving.' },
 				},
-				required: ['documentType', 'name'],
+				required: ['documentType'],
 			},
 			async execute(
 				input: {
 					documentType: string;
 					parentDocumentKey?: string;
-					name: string;
+					name?: string;
+					names?: Record<string, string>;
 					values?: Record<string, unknown>;
+					culturedValues?: Record<string, Record<string, unknown>>;
 					publish?: boolean;
 				},
 				call?: UmbWebMcpToolCall,
 			) {
+				const names = Object.entries(input.names ?? {});
+				if (!input.name && !names.length) throw new Error('Pass name, or names by culture for a document that varies by culture.');
 				const allowed = (await umbWebMcpToolHub.call(
 					'umbraco_list_allowed_document_types',
 					{ parentDocumentKey: input.parentDocumentKey },
@@ -138,11 +151,25 @@ export function createDocumentTools(host: UmbControllerHost): Array<UmbWebMcpToo
 					call,
 				)) as { workspaceReady?: boolean };
 				if (!opened.workspaceReady) throw new Error('The new document did not finish loading.');
-				await umbWebMcpToolHub.call('umbraco_set_document_name', { name: input.name }, call);
+				if (input.name) await umbWebMcpToolHub.call('umbraco_set_document_name', { name: input.name }, call);
+				// Naming a culture creates its variant
+				for (const [culture, name] of names) {
+					await umbWebMcpToolHub.call('umbraco_set_document_name', { name, culture }, call);
+				}
 				for (const [alias, value] of Object.entries(input.values ?? {})) {
 					await umbWebMcpToolHub.call('umbraco_set_document_property_value', { alias, value }, call);
 				}
-				return umbWebMcpToolHub.call(input.publish ? 'umbraco_save_and_publish_document' : 'umbraco_save_document', {}, call);
+				for (const [culture, values] of Object.entries(input.culturedValues ?? {})) {
+					for (const [alias, value] of Object.entries(values)) {
+						await umbWebMcpToolHub.call('umbraco_set_document_property_value', { alias, value, culture }, call);
+					}
+				}
+				const cultures = names.map(([culture]) => culture);
+				return umbWebMcpToolHub.call(
+					input.publish ? 'umbraco_save_and_publish_document' : 'umbraco_save_document',
+					cultures.length ? { cultures } : {},
+					call,
+				);
 			},
 		},
 		{
