@@ -1,4 +1,4 @@
-import type { UmbWebMcpTool } from '../model-context.ts';
+import type { UmbWebMcpTool, UmbWebMcpToolAnnotations, UmbWebMcpToolCall } from '../model-context.ts';
 import { runWithoutBlocking, waitForQuiet } from '../utils.ts';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbEntityContext } from '@umbraco-cms/backoffice/entity';
@@ -38,12 +38,14 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 	const localize = new UmbLocalizationController(host);
 
 	/**
-	 * Creates the entity actions the current user is permitted to run on the entity. The caller must destroy the
-	 * returned element once it no longer needs the actions, which may be after an action's modal closes.
+	 * Creates the entity actions the current user is permitted to run on the entity. The caller must dispose of them
+	 * once it no longer needs the actions, which may be after an action's modal closes. If `signal` aborts while the
+	 * conditions settle, everything is disposed of and the abort reason is thrown.
 	 */
 	async function getPermittedActions(
 		type: 'entityAction' | 'entityCreateOptionAction',
 		{ entityType, unique }: UmbEntityRef,
+		signal?: AbortSignal,
 	) {
 		const element = new UmbWebMcpEntityHostElement();
 		host.getHostElement().appendChild(element);
@@ -51,25 +53,36 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 		entityContext.setEntityType(entityType);
 		entityContext.setUnique(unique);
 
-		let permitted: Array<any> = [];
-		await waitForQuiet((onChange) => {
-			new UmbExtensionsApiInitializer(
-				element,
-				umbExtensionsRegistry,
-				type,
-				(manifest: any) => [{ entityType, unique, meta: manifest.meta }],
-				(manifest: any) => manifest.forEntityTypes.includes(entityType),
-				(controllers) => {
-					permitted = controllers;
-					onChange();
-				},
-			);
-		});
-
 		const dispose = () => {
 			element.destroy();
 			element.remove();
 		};
+
+		let permitted: Array<any> = [];
+		try {
+			await waitForQuiet(
+				(onChange) => {
+					new UmbExtensionsApiInitializer(
+						element,
+						umbExtensionsRegistry,
+						type,
+						(manifest: any) => [{ entityType, unique, meta: manifest.meta }],
+						(manifest: any) => manifest.forEntityTypes.includes(entityType),
+						(controllers) => {
+							permitted = controllers;
+							onChange();
+						},
+					);
+				},
+				undefined,
+				undefined,
+				signal,
+			);
+		} catch (error) {
+			dispose();
+			throw error;
+		}
+
 		return { dispose, permitted };
 	}
 
@@ -77,6 +90,7 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 		type: 'entityAction' | 'entityCreateOptionAction',
 		names: { list: string; run: string },
 		text: { listTitle: string; listDescription: string; runTitle: string; runDescription: string },
+		runAnnotations: UmbWebMcpToolAnnotations,
 	): Array<UmbWebMcpTool> {
 		return [
 			{
@@ -85,8 +99,8 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				description: text.listDescription,
 				annotations: { readOnlyHint: true },
 				inputSchema: { type: 'object', properties: ENTITY_PROPERTIES, required: ['entityType', 'unique'] },
-				async execute(entity: UmbEntityRef) {
-					const { dispose, permitted } = await getPermittedActions(type, entity);
+				async execute(entity: UmbEntityRef, call?: UmbWebMcpToolCall) {
+					const { dispose, permitted } = await getPermittedActions(type, entity, call?.signal);
 					try {
 						return permitted.map(({ manifest }) => ({
 							alias: manifest.alias,
@@ -102,14 +116,14 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				name: names.run,
 				title: text.runTitle,
 				description: text.runDescription,
-				annotations: { consequentialHint: true },
+				annotations: runAnnotations,
 				inputSchema: {
 					type: 'object',
 					properties: { ...ENTITY_PROPERTIES, alias: { type: 'string', description: `From ${names.list}.` } },
 					required: ['entityType', 'unique', 'alias'],
 				},
-				async execute({ alias, ...entity }: UmbEntityRef & { alias: string }) {
-					const { dispose, permitted } = await getPermittedActions(type, entity);
+				async execute({ alias, ...entity }: UmbEntityRef & { alias: string }, call?: UmbWebMcpToolCall) {
+					const { dispose, permitted } = await getPermittedActions(type, entity, call?.signal);
 					const action = permitted.find((controller) => controller.manifest.alias === alias)?.api;
 					if (!action) {
 						dispose();
@@ -123,15 +137,19 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 						return { completed: true, navigatedTo: location.pathname };
 					}
 
+					let work: Promise<unknown>;
 					try {
-						const { completed, promise } = await runWithoutBlocking(() => action.execute());
-						// Keep the host alive until the action, and any modal it opened, has finished.
-						promise.finally(dispose);
-						return { completed };
+						call?.signal?.throwIfAborted();
+						work = action.execute();
 					} catch (error) {
 						dispose();
 						throw error;
 					}
+					// Keep the host alive until the action, and any modal it opened, has finished, even if the caller
+					// stops waiting first.
+					work.then(dispose, dispose);
+					const { completed } = await runWithoutBlocking(() => work, undefined, call?.signal);
+					return { completed };
 				},
 			},
 		];
@@ -149,6 +167,9 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				runDescription:
 					'Runs an entity action, as clicking it in the "..." menu does. Most actions open a modal: this returns while it is open, with completed false, so use umbraco_list_modals and the other modal tools to finish it. To create something, prefer umbraco_run_create_option.',
 			},
+			// Some actions, such as Reload, change nothing, but Delete, Trash and Move do, so every call is treated as
+			// consequential.
+			{ consequentialHint: true },
 		),
 		...createListAndRunTools(
 			'entityCreateOptionAction',
@@ -161,6 +182,8 @@ export function createEntityActionTools(host: UmbControllerHost): Array<UmbWebMc
 				runDescription:
 					"Runs a create option directly, skipping the Create dialog. Most open the new item's workspace; some, such as New Folder, open a modal instead and return completed false.",
 			},
+			// Opens an unsaved workspace or a modal; nothing is saved until the agent saves or submits.
+			{},
 		),
 	];
 }

@@ -1,5 +1,45 @@
 import { expect } from '@open-wc/testing';
-import { runWithoutBlocking, toPlain } from './utils.js';
+import { runWithoutBlocking, toPlain, waitForQuiet } from './utils.js';
+
+/**
+ * Counts the timers started through window.setTimeout and not yet fired or cleared, for the duration of a test.
+ */
+function trackTimers() {
+	const pending = new Set<number>();
+	const originalSet = window.setTimeout;
+	const originalClear = window.clearTimeout;
+	window.setTimeout = ((handler: () => void, ms?: number) => {
+		const id = originalSet(() => {
+			pending.delete(id);
+			handler();
+		}, ms);
+		pending.add(id);
+		return id;
+	}) as typeof window.setTimeout;
+	window.clearTimeout = ((id?: number) => {
+		if (id !== undefined) pending.delete(id);
+		originalClear(id);
+	}) as typeof window.clearTimeout;
+	return {
+		pending: () => pending.size,
+		restore: () => {
+			window.setTimeout = originalSet;
+			window.clearTimeout = originalClear;
+		},
+	};
+}
+
+/**
+ * Resolves with what the promise rejected with, or fails the test if it resolved.
+ */
+async function rejectionOf(promise: Promise<unknown>) {
+	try {
+		await promise;
+	} catch (error) {
+		return error;
+	}
+	throw new Error('Expected the promise to reject.');
+}
 
 describe('runWithoutBlocking', () => {
 	it('reports completed when the work finishes in time', async () => {
@@ -33,6 +73,107 @@ describe('runWithoutBlocking', () => {
 		resolveWork();
 
 		expect(await promise).to.equal(true);
+	});
+
+	describe('with a signal', () => {
+		let timers: ReturnType<typeof trackTimers>;
+
+		beforeEach(() => (timers = trackTimers()));
+		afterEach(() => timers.restore());
+
+		it('rejects with the abort reason when the caller cancels', async () => {
+			const controller = new AbortController();
+			const waiting = runWithoutBlocking(() => new Promise(() => {}), 10_000, controller.signal);
+			controller.abort(new Error('cancelled'));
+
+			expect(((await rejectionOf(waiting)) as Error).message).to.equal('cancelled');
+		});
+
+		it('leaves no timer running after the caller cancels', async () => {
+			const controller = new AbortController();
+			const waiting = runWithoutBlocking(() => new Promise(() => {}), 10_000, controller.signal);
+			controller.abort();
+			await rejectionOf(waiting);
+
+			expect(timers.pending()).to.equal(0);
+		});
+
+		it('does not start the work when the signal has already aborted', async () => {
+			let started = false;
+			const controller = new AbortController();
+			controller.abort();
+			await rejectionOf(
+				runWithoutBlocking(
+					async () => {
+						started = true;
+					},
+					100,
+					controller.signal,
+				),
+			);
+
+			expect(started).to.equal(false);
+		});
+
+		it('leaves no timer running when the work finishes first', async () => {
+			await runWithoutBlocking(async () => 'done', 10_000, new AbortController().signal);
+
+			expect(timers.pending()).to.equal(0);
+		});
+	});
+});
+
+describe('waitForQuiet', () => {
+	let timers: ReturnType<typeof trackTimers>;
+
+	beforeEach(() => (timers = trackTimers()));
+	afterEach(() => timers.restore());
+
+	it('resolves once changes stop', async () => {
+		let settled = false;
+		await waitForQuiet(() => {}, 10).then(() => (settled = true));
+
+		expect(settled).to.equal(true);
+	});
+
+	it('leaves no timer running after it resolves', async () => {
+		await waitForQuiet(() => {}, 10, 1000);
+
+		expect(timers.pending()).to.equal(0);
+	});
+
+	it('ignores changes after it has resolved', async () => {
+		let change!: () => void;
+		await waitForQuiet((onChange) => (change = onChange), 10, 1000);
+		change();
+
+		expect(timers.pending()).to.equal(0);
+	});
+
+	it('rejects with the abort reason when the caller cancels', async () => {
+		const controller = new AbortController();
+		const waiting = waitForQuiet(() => {}, 10_000, 20_000, controller.signal);
+		controller.abort(new Error('cancelled'));
+
+		expect(((await rejectionOf(waiting)) as Error).message).to.equal('cancelled');
+	});
+
+	it('leaves no timer running after the caller cancels', async () => {
+		const controller = new AbortController();
+		const waiting = waitForQuiet(() => {}, 10_000, 20_000, controller.signal);
+		controller.abort();
+		await rejectionOf(waiting);
+
+		expect(timers.pending()).to.equal(0);
+	});
+
+	it('does not subscribe when the signal has already aborted', async () => {
+		let subscribed = false;
+		const controller = new AbortController();
+		controller.abort();
+		await rejectionOf(waitForQuiet(() => (subscribed = true), 10, 1000, controller.signal));
+
+		expect(subscribed).to.equal(false);
 	});
 });
 

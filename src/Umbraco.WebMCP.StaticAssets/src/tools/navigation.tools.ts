@@ -191,7 +191,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			title: 'Get tree items',
 			description:
 				'Returns the root items of a tree, or the children of a parent item. Without a parent it also returns the tree root entity, whose actions (such as Create) belong to the tree as a whole. Use the entityType and unique of an item with umbraco_open_entity or umbraco_list_entity_actions.',
-			annotations: { readOnlyHint: true },
+			annotations: { readOnlyHint: true, untrustedContentHint: true },
 			inputSchema: {
 				type: 'object',
 				properties: {
@@ -281,7 +281,7 @@ export function createNavigationTools(host: UmbControllerHost): Array<UmbWebMcpT
 			title: 'List allowed document types',
 			description:
 				'Lists the document types that can be created at the content root, or under a parent document when parentDocumentKey is given.',
-			annotations: { readOnlyHint: true },
+			annotations: { readOnlyHint: true, untrustedContentHint: true },
 			inputSchema: {
 				type: 'object',
 				properties: {

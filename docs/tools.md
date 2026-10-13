@@ -1,42 +1,77 @@
 # Tools
 
+*Last checked: 08-10-2026, against WebMCP (W3C Community Group draft of 02-10-2026). The annotation names come from
+the draft and may change.*
+
 The tools this package registers, and how to call them. Most tools read the backoffice extension registry, so they
 work for packages such as Umbraco Forms without any package-specific code.
 
-| Tool | When registered | What it does |
-|------|-----------------|--------------|
-| `umbraco_get_location` | always | Current path, section and open workspace |
-| `umbraco_navigate` | always | Push a `/umbraco/...` path |
-| `umbraco_list_sections` | always | Sections the current user can access |
-| `umbraco_list_section_menu` | always | A section's sidebar menu items, with their tree alias or entity type |
-| `umbraco_get_tree_items` | always | Root entity and root items of a tree, or the children of an item |
-| `umbraco_open_entity` | always | Open `section/{section}/workspace/{entityType}/edit/{unique}` |
-| `umbraco_list_entity_actions` / `umbraco_run_entity_action` | always | The "..." menu of an entity |
-| `umbraco_list_create_options` / `umbraco_run_create_option` | always | The options in an entity's Create dialog |
-| `umbraco_list_modals` | always | Open modals, with their data, value and button labels |
-| `umbraco_click_modal_button` | always | Click a modal button by label |
-| `umbraco_set_modal_value` / `umbraco_submit_modal` / `umbraco_close_modal` | always | Drive a modal through its context |
-| `umbraco_list_allowed_document_types` | always | Allowed document types at root or under a parent |
-| `umbraco_open_new_document` / `umbraco_open_document` | always | Open the document workspace |
-| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state |
-| `umbraco_list_workspace_actions` / `umbraco_run_workspace_action` | any workspace open | The workspace footer buttons, such as Save |
-| `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values |
-| `umbraco_set_document_name` | document workspace open | Set the name for a variant |
-| `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) |
-| `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons |
+In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `untrustedContentHint`; see
+[Annotations](#annotations). Where a row has two tools, the hints before and after the slash are for each in turn.
+
+| Tool | When registered | What it does | Hints |
+|------|-----------------|--------------|-------|
+| `umbraco_get_location` | always | Current path, section and open workspace | R |
+| `umbraco_navigate` | always | Push a `/umbraco/...` path | none |
+| `umbraco_list_sections` | always | Sections the current user can access | R |
+| `umbraco_list_section_menu` | always | A section's sidebar menu items, with their tree alias or entity type | R |
+| `umbraco_get_tree_items` | always | Root entity and root items of a tree, or the children of an item | R, U |
+| `umbraco_open_entity` | always | Open `section/{section}/workspace/{entityType}/edit/{unique}` | none |
+| `umbraco_list_entity_actions` / `umbraco_run_entity_action` | always | The "..." menu of an entity | R / C |
+| `umbraco_list_create_options` / `umbraco_run_create_option` | always | The options in an entity's Create dialog | R / none |
+| `umbraco_list_modals` | always | Open modals, with their data, value and button labels | R, U |
+| `umbraco_click_modal_button` | always | Click a modal button by label | C |
+| `umbraco_set_modal_value` | always | Change a modal's pending value | U |
+| `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
+| `umbraco_list_allowed_document_types` | always | Allowed document types at root or under a parent | R, U |
+| `umbraco_open_new_document` / `umbraco_open_document` | always | Open the document workspace | none |
+| `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state | R |
+| `umbraco_list_workspace_actions` / `umbraco_run_workspace_action` | any workspace open | The workspace footer buttons, such as Save | R / C |
+| `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values | R, U |
+| `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
+| `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
+| `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md).
 
+## Annotations
+
+Annotations are hints to the agent and its host, not restrictions. The tools enforce nothing themselves, and the
+current user's permissions still apply. The host decides what to do with them; for example, the
+[Copilot bridge](umbraco-ai-copilot.md) asks the editor to approve consequential calls.
+
+- **`readOnlyHint`:** the tool only reads. It changes nothing, not even what's on screen.
+- **`consequentialHint`:** a call may save, delete, move or publish something. A tool is marked if *any* input can do
+  that. The four tools whose effect depends on the input are always marked, failing closed rather than guessing from
+  the input:
+  - `umbraco_run_entity_action`: Delete, Trash and Move change data; Reload doesn't.
+  - `umbraco_click_modal_button`: Delete or Submit change data; Cancel or Close don't.
+  - `umbraco_submit_modal`: whatever opened the modal acts on the value.
+  - `umbraco_run_workspace_action`: Save, Save and publish, and Save and preview all persist.
+- **Not consequential:** tools that only change what's on screen. Navigating, opening, staging edits in the open
+  workspace (`umbraco_set_document_*`, `umbraco_set_modal_value`), dismissing a modal and `umbraco_run_create_option`
+  (which opens an unsaved workspace or a modal) change nothing until something is saved or submitted. Navigating away
+  from unsaved changes shows the backoffice's own discard prompt.
+- **`untrustedContentHint`:** the result can contain text that editors wrote, such as names, property values or a
+  modal's value, and that text may have been written to manipulate an agent. Tools that return only aliases, keys,
+  flags and labels from extension manifests aren't marked. It's a label, not a defence; the defence is approval on
+  consequential calls.
+- **`debugging`:** set on every tool, because this package is for development and testing.
+
 ## Behaviour
 
-- **Read-only tools are marked `readOnlyHint`; tools that change data are marked `consequentialHint`.** These are
-  hints to the agent, not restrictions.
 - **Actions that open a modal don't wait for it.** They return straight away with `completed: false`, so the agent
   can finish the modal with the modal tools.
 - **Prefer `umbraco_click_modal_button` to `umbraco_submit_modal`.** Many modals do their work in the button handler,
   so submitting through the modal's context skips it.
 - **When two registrations share a tool name,** for example a document opened in a modal on top of another, the
-  newest one handles calls until it closes.
+  newest one handles calls until it closes. If its description or input schema differs from the one WebMCP holds,
+  the name is registered with WebMCP again, and the previous schema comes back when it closes. Schemas that differ
+  only in key order count as the same.
+- **Cancelling a call stops the wait, not the work.** WebMCP passes an abort signal with each call, and the page API
+  takes one as a third argument (`call(name, input, { signal })`). A call cancelled before it starts never runs the
+  tool. Once an action has started, cancelling makes the tool return straight away with the abort reason, but the
+  action carries on: a save that has started still saves.
 
 ## Calling tools
 
@@ -48,6 +83,7 @@ The same tools are available two ways, whenever the package is enabled:
 
   ```js
   await window.__umbWebMcp.call('umbraco_get_tree_items', { treeAlias: 'Forms.Tree.Forms' });
+  await window.__umbWebMcp.call('umbraco_save_document', {}, { signal: AbortSignal.timeout(10_000) });
   window.__umbWebMcp.list();
   ```
 
