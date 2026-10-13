@@ -2,8 +2,10 @@ import type { UmbWebMcpTool, UmbWebMcpToolCall } from '../model-context.ts';
 import { startOutcome } from '../outcome.ts';
 import { toPlain, waitUntil } from '../utils.ts';
 import { findButton, findModalElement, getButtons } from './modal-buttons.ts';
+import { findPicker, findPickerItem } from './picker.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
+import { UmbLocalizationController } from '@umbraco-cms/backoffice/localization-api';
 import { UMB_MODAL_MANAGER_CONTEXT, type UmbModalContext } from '@umbraco-cms/backoffice/modal';
 
 const KEY_PROPERTY = { key: { type: 'string', description: 'From umbraco_list_modals.' } };
@@ -35,6 +37,7 @@ class UmbWebMcpModalWatcher extends UmbControllerBase {
  */
 export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> {
 	const watcher = new UmbWebMcpModalWatcher(host);
+	const localize = new UmbLocalizationController(host);
 
 	/**
 	 * After a modal has been clicked, submitted or closed: waits for it to close and for the notifications the work
@@ -71,7 +74,7 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			name: 'umbraco_set_modal_value',
 			title: 'Set modal value',
 			description:
-				'Replaces the value of an open modal, for example the selection of a picker. The shape depends on the modal: read its current value with umbraco_list_modals first. The modal UI may not show the change.',
+				"Replaces the value of an open modal. The shape depends on the modal: read its current value with umbraco_list_modals first. To choose items in a picker, use umbraco_select_picker_item instead: pickers keep their selection in their tree, and some, such as Forms' Move to, ignore this value.",
 			annotations: { untrustedContentHint: true },
 			inputSchema: {
 				type: 'object',
@@ -82,6 +85,67 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 				const modal = watcher.get(key);
 				modal.setValue(value);
 				return { value: toPlain(modal.getValue()) };
+			},
+		},
+		{
+			name: 'umbraco_select_picker_item',
+			title: 'Select a picker item',
+			description:
+				"Selects an item in an open picker modal, such as Move to, Copy to or a content, media or document type picker, as clicking it in the picker's tree does, so the picker shows it and its confirm button is enabled. Pass the item's unique (null for the root, for example to move a form out of a folder) or its name as shown. Pickers that take several items add one per call; pass deselect to remove one. Returns the picker's selection, the items it shows and its buttons; finish with umbraco_click_modal_button.",
+			annotations: { untrustedContentHint: true },
+			inputSchema: {
+				type: 'object',
+				properties: {
+					...KEY_PROPERTY,
+					unique: {
+						type: ['string', 'null'],
+						description: 'The unique (key) of the item to pick, or null for the root.',
+					},
+					name: { type: 'string', description: 'The name of an item the picker shows, if you have no unique.' },
+					deselect: { type: 'boolean', description: 'Remove the item from the selection instead.' },
+				},
+				required: ['key'],
+			},
+			async execute({
+				key,
+				unique,
+				name,
+				deselect,
+			}: {
+				key: string;
+				unique?: string | null;
+				name?: string;
+				deselect?: boolean;
+			}) {
+				const modal = watcher.get(key);
+				const element = findModalElement(key);
+				if (!element) throw new Error(`The element for modal "${key}" is not rendered yet. Try again shortly.`);
+				const picker = findPicker(element, (text) => localize.string(text));
+				if (!picker) {
+					throw new Error(
+						'This modal has no tree to pick from, or it has not loaded yet. Read its value with umbraco_list_modals and use umbraco_set_modal_value.',
+					);
+				}
+				const { tree, items } = picker;
+				if (!tree.selection.getSelectable()) throw new Error('This picker does not allow selecting items.');
+				const item = findPickerItem(items, { unique, name });
+				if ('pickable' in item && !item.pickable && !deselect) {
+					const pickable = items.filter((x) => x.pickable).map((x) => x.name);
+					throw new Error(`"${item.name}" can't be picked here. Pickable: ${pickable.join(', ') || 'none'}.`);
+				}
+				if (deselect) tree.selection.deselect(item.unique);
+				else tree.selection.select(item.unique);
+				// The picker updates its value and buttons from the selection events
+				await new Promise((resolve) => setTimeout(resolve, 100));
+				return {
+					selection: tree.selection
+						.getSelection()
+						.map((x) => ({ unique: x, name: items.find((i) => i.unique === x)?.name ?? null })),
+					multiple: tree.selection.getMultiple(),
+					shown: items,
+					value: toPlain(modal.getValue()),
+					buttons: getButtons(element).map(({ id, label, disabled }) => ({ id, label, disabled })),
+				};
 			},
 		},
 		{
