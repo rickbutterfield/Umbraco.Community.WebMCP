@@ -104,9 +104,12 @@ jobs:
         run: |
           dotnet dev-certs https
           dotnet build examples/Umbraco.Community.WebMCP.TestSite
-          nohup dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --launch-profile Umbraco.Web.UI --no-build > site.log 2>&1 &
+          # launchSettings.json is gitignored, so set what its Umbraco.Web.UI profile would
+          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="$URL" nohup dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --no-launch-profile --no-build > site.log 2>&1 &
+          site=$!
           for i in $(seq 1 60); do
             if [ "$(curl -sk -o /dev/null -w '%{http_code}' "$URL/umbraco")" = "200" ]; then exit 0; fi
+            if ! kill -0 "$site" 2>/dev/null; then echo "The site stopped"; cat site.log; exit 1; fi
             sleep 5
           done
           echo "The site didn't start within 5 minutes"
