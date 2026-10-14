@@ -42,6 +42,20 @@ describe('modal buttons', () => {
 		expect(getButtons(modal).map((x) => x.label)).to.deep.equal(['Outer']);
 	});
 
+	it('leaves out the actions of tree items, as in a picker', async () => {
+		const modal = await renderModal(
+			'a',
+			html`<uui-menu-item label="Bench folder">
+					<uui-button slot="actions" label="View actions for 'Bench folder'"></uui-button>
+					<uui-button slot="actions">Move...</uui-button>
+				</uui-menu-item>
+				<uui-button>Cancel</uui-button>
+				<uui-button>Move</uui-button>`,
+		);
+
+		expect(getButtons(modal).map((x) => x.label)).to.deep.equal(['Cancel', 'Move']);
+	});
+
 	it('finds a modal element by its context key', async () => {
 		const modal = await renderModal('find-me', html`<uui-button>OK</uui-button>`);
 
