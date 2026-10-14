@@ -65,7 +65,8 @@ dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --launch-profile
 ```
 
 `wwwroot` is gitignored, so build the client before `dotnet build`, `dotnet run` or `dotnet pack`, or the site serves
-no backoffice assets. CI (`.github/workflows/build.yml`) installs, lints, tests and builds the client, then builds and packs.
+no backoffice assets. CI (`.github/workflows/build.yml`) installs, lints, tests and builds the client, then builds and packs. Its `e2e` job starts the test site and runs
+the `surfaces` and `webmcp-polyfill` Playwright projects from `benchmarks/`.
 
 To release, set the version in `version.json`, then push a tag named `release-<version>` (for example
 `release-1.0.0-alpha`). `.github/workflows/release.yml` runs the build and pushes both packages
