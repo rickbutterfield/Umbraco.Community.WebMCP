@@ -59,7 +59,9 @@ npx playwright test --project=webmcp --project=webmcp-polyfill   # the WebMCP en
 ```
 
 `webmcp-polyfill` runs the WebMCP tests in Playwright's bundled Chromium with Google's WebMCP polyfill
-(`tests/webmcp/webmcp-polyfill.js`) instead of Chrome's own WebMCP.
+(`tests/webmcp/webmcp-polyfill.js`) instead of Chrome's own WebMCP. CI (the `e2e` job in `.github/workflows/build.yml`)
+runs `surfaces` and `webmcp-polyfill` on every pull request; `webmcp` needs Google Chrome with WebMCP, so run it
+locally.
 
 Agent settings: `BENCH_MODEL` (default `sonnet`) and `BENCH_MAX_USD`, the budget per run (default 1). The agent
 runs outside the repo with only the one MCP server and no built-in tools, but your user-level `CLAUDE.md` still
