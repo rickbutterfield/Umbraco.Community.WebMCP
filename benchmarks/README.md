@@ -15,8 +15,8 @@ Two measurements, both against the test site (`examples/Umbraco.Community.WebMCP
   The tests call the tools through `document.modelContext` (`tests/webmcp-tools.ts`). The comparison: pass rate over
   repeated runs (flakiness) and Act time.
 
-- **Agent** (`agent/`): an agent (Claude Code, headless) is given each case in `agent/cases.json` in plain words: four
-  content tasks (create, publish, rename, trash a page) and four Forms tasks (build a form, add a page to a form,
+- **Agent** (`agent/`): an agent (Claude Code, headless) is given each case in `agent/cases.json` in plain words: five
+  content tasks (create, publish, rename, trash a page, sort a page's children) and four Forms tasks (build a form, add a page to a form,
   delete a form, move a form into a folder). Every variant drives Google Chrome, and none may run scripts in the page:
 
   | Variant | WebMCP | Browser tools |

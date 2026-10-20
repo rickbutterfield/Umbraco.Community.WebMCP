@@ -10,6 +10,9 @@ const dataTypeName = 'Textstring';
 const pageName = 'Bench page';
 const draftName = 'Bench draft name';
 const text = 'Hello from the benchmark';
+const parentTypeName = 'BenchParent';
+const parentName = 'Bench parent';
+const childNames = ['Bench child A', 'Bench child B', 'Bench child C'];
 
 async function createDocumentType(api: ApiHelpers) {
 	const dataType = await api.dataType.getByName(dataTypeName);
@@ -110,6 +113,23 @@ const cases: Record<string, { arrange(api: ApiHelpers): Promise<void>; verify(ap
 			expect(await api.document.doesItemExistInRecycleBin(pageName)).toBeTruthy();
 		},
 	},
+	'sort-content': {
+		async arrange(api) {
+			const childTypeId = await createDocumentType(api);
+			const parentTypeId = await api.documentType.createDocumentTypeWithAllowedChildNode(parentTypeName, childTypeId);
+			const parentId = await api.document.createDefaultDocument(parentName, parentTypeId);
+			for (const name of childNames) await api.document.createDefaultDocumentWithParent(name, childTypeId, parentId);
+		},
+		async verify(api) {
+			const parent = await api.document.getByName(parentName);
+			const children = await api.document.getChildren(parent.id);
+			expect(children.map((child: any) => child.variants[0].name), 'The children are in the new order').toEqual([
+				'Bench child C',
+				'Bench child A',
+				'Bench child B',
+			]);
+		},
+	},
 };
 
 const benchCase = cases[process.env.BENCH_CASE ?? ''];
@@ -117,7 +137,9 @@ const benchCase = cases[process.env.BENCH_CASE ?? ''];
 async function cleanUp(api: ApiHelpers) {
 	await api.document.ensureNameNotExists(pageName);
 	await api.document.ensureNameNotExists(draftName);
+	await api.document.ensureNameNotExists(parentName);
 	await api.document.emptyRecycleBin();
+	await api.documentType.ensureNameNotExists(parentTypeName);
 	await api.documentType.ensureNameNotExists(documentTypeName);
 	await new FormsApi(api).cleanUp(BENCH_FORM);
 }
