@@ -16,6 +16,10 @@
 		"task": "Move the page \"Bench page\", at the root of the content tree, to the recycle bin."
 	},
 	{
+		"id": "sort-content",
+		"task": "The page \"Bench parent\", at the root of the content tree, has three child pages. Sort them so that \"Bench child C\" comes first, then \"Bench child A\", then \"Bench child B\"."
+	},
+	{
 		"id": "forms-delete",
 		"task": "In the Forms section, delete the form \"Bench form\"."
 	},

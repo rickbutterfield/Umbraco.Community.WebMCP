@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = join(root, 'src/Umbraco.Community.WebMCP.StaticAssets/src');
 const snapshotPath = join(root, 'scripts/tool-names.json');
-const verbs = ['click', 'close', 'create', 'get', 'list', 'navigate', 'open', 'run', 'save', 'search', 'select', 'set', 'submit'];
+const verbs = ['click', 'close', 'create', 'get', 'list', 'navigate', 'open', 'run', 'save', 'search', 'select', 'set', 'sort', 'submit'];
 
 const walk = (dir) =>
 	readdirSync(dir).flatMap((x) => {
