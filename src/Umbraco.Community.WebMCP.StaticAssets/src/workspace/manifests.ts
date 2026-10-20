@@ -16,4 +16,11 @@ export const manifests: Array<UmbExtensionManifest> = [
 		api: () => import('./document.workspace-toolset.ts'),
 		conditions: [{ alias: UMB_WORKSPACE_CONDITION_ALIAS, match: UMB_DOCUMENT_WORKSPACE_ALIAS }],
 	},
+	{
+		type: 'webMcpWorkspaceToolset',
+		alias: 'Umbraco.Community.WebMCP.WorkspaceToolset.Blocks',
+		name: 'WebMCP Block Editor Workspace Toolset',
+		api: () => import('./block.workspace-toolset.ts'),
+		conditions: [{ alias: UMB_WORKSPACE_CONDITION_ALIAS, match: UMB_DOCUMENT_WORKSPACE_ALIAS }],
+	},
 ];

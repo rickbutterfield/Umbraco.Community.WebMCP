@@ -33,6 +33,10 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
+| `umbraco_list_blocks` | document workspace open | The blocks in a Block List or Block Grid property (keys, block types, values, settings, grid areas) and the block types that can be added | R, U |
+| `umbraco_add_block` | document workspace open | Add a block of an allowed type, with values, at an index or in a Block Grid area | U |
+| `umbraco_set_block_values` | document workspace open | Set a block's values or settings by its key | U |
+| `umbraco_remove_block` / `umbraco_move_block` | document workspace open | Remove a block (with its area blocks), or move it to an index or into or out of a Block Grid area | U |
 | `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md).
@@ -54,7 +58,8 @@ current user's permissions still apply. The host decides what to do with them; f
 - **Not consequential:** tools that only change what's on screen. Navigating, opening, staging edits in the open
   workspace (`umbraco_set_document_*`), choosing in a modal (`umbraco_select_picker_item`, `umbraco_set_modal_value`), dismissing a modal and `umbraco_run_create_option`
   (which opens an unsaved workspace or a modal) change nothing until something is saved or submitted. Navigating away
-  from unsaved changes shows the backoffice's own discard prompt.
+  from unsaved changes shows the backoffice's own discard prompt. The block tools (`umbraco_add_block`,
+  `umbraco_set_block_values`, `umbraco_remove_block`, `umbraco_move_block`) stage edits the same way.
 - **`untrustedContentHint`:** the result can contain text that editors wrote, such as names, property values or a
   modal's value, and that text may have been written to manipulate an agent. Tools that return only aliases, keys,
   flags and labels from extension manifests aren't marked. It's a label, not a defence; the defence is approval on
@@ -88,6 +93,18 @@ current user's permissions still apply. The host decides what to do with them; f
   tree, so a changed modal value doesn't always reach them: Forms' Move to ignores it and keeps Move disabled. The
   tool selects through the tree's own selection, checks the picker's filter (such as folders only) and returns the
   selection and buttons. Items inside a collapsed folder can still be picked by their unique.
+- **Edit blocks with the block tools, not the stored value.** `umbraco_set_document_property_value` can rewrite a
+  Block List or Block Grid value, but the agent then has to write the stored format: new keys, an `editorAlias` per
+  value and an `expose` entry per block. A block without one saves without an error but stays unexposed, and no other
+  tool returns the element type keys or Block Grid area keys a new block needs. The block tools load the property into
+  the backoffice's own block manager, so a new block gets the property editors' default values, its settings and its
+  `expose` entries, then they write the value back to the document. They work whichever tab the property is on,
+  without its editor on screen. Blocks are identified by their key (the content key) from `umbraco_list_blocks`;
+  values go in by property alias, each in its property editor's stored format. For a document that varies by
+  culture, pass `culture`. In a Block Grid, `parentKey` and `area` (alias or key) put a block in another block's area;
+  the tools refuse block types the root or area doesn't allow, more blocks than its maximum, and moving a block into
+  its own areas, and size a block to its container as the grid does. Each change returns the blocks afterwards. Blocks
+  nested inside another block's own Block List property aren't reachable yet.
 - **Prefer `umbraco_click_modal_button` to `umbraco_submit_modal`.** Many modals do their work in the button handler,
   so submitting through the modal's context skips it.
 - **When two registrations share a tool name,** for example a document opened in a modal on top of another, the

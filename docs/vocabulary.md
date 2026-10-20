@@ -25,6 +25,10 @@ Terms used across this repository's code and docs. Use these words, and only wit
 | **Create option** | An option in the dialog an item's Create action opens, such as New Form (`entityCreateOptionAction`). |
 | **Workspace action** | A button in a workspace footer, such as Save (`workspaceAction`). |
 | **Modal** | A dialog or sidebar opened through the modal manager. Its buttons may do work before it submits. |
+| **Block** | One item in a Block List or Block Grid property: a layout entry, content data (an element type's values) and, if its block type has them, settings data. The block tools identify a block by its **block key**, the content key. |
+| **Block manager** | The backoffice context that holds a block property's layouts, content, settings and exposes and creates new blocks (`UmbBlockManagerContext`). The block tools run one per call. |
+| **Expose** | An entry in a block value saying a block exists in a variant (culture and segment). A block without one for a variant is stored but not exposed in it. |
+| **Area** | A slot inside a Block Grid block that holds other blocks, configured per block type with an alias, a width and the block types it allows. |
 
 ## Elsewhere
 

@@ -68,6 +68,7 @@ The tools call the same code the click handlers call, one layer below the page. 
 | Workspace buttons (`umbraco_run_workspace_action`) | Runs the same action as the footer button | Same code, but the button's own spinner and success state don't show |
 | Modal buttons (`umbraco_click_modal_button`) | `.click()` on the real button | The closest to Playwright: the modal's own handler runs |
 | Modal and document values | Writes into the modal's or workspace's data | Skips the editor UI, including its validation and formatting |
+| Blocks (`umbraco_add_block` and the other block tools) | Runs the backoffice's block manager on a hidden element, then writes the property value to the workspace | Skips the Block List and Block Grid editors: no create dialog, block workspace modal or dragging, and the editor's validation only runs on save |
 
 So Playwright tests the UI, and the tools test the behaviour behind it. Tool calls are faster, don't break when
 selectors change, and return structured results, but they can't tell you that a button is hidden, covered or
