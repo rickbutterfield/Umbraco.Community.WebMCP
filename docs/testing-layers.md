@@ -143,5 +143,8 @@ content, four Forms), with and without WebMCP. Full numbers and method are in
 **Verdict:** on short, well-trodden flows the tools don't justify themselves on speed or cost. On a complex editor
 they do, but the gain comes from a product toolset for that editor; the generic tools alone don't edit a form's design.
 Picker modals are the main gap in the generic tools: setting the "Move to" picker's value doesn't update its
-selection, so agents moving a form still click. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
+selection, so agents moving a form still click. Drag-and-drop sort modals had the same gap: Sort children keeps its
+order in the table you drag rows in, so a changed value is ignored. `umbraco_select_picker_item` and
+`umbraco_sort_modal_items` now drive the picker's tree and the sort table themselves; the end-to-end tests in
+`benchmarks/tests/webmcp/` check both, but the agent benchmark hasn't been rerun since. The stronger case for the tools is the [Copilot bridge](why-webmcp.md#with-the-umbracoai-copilot):
 named tools with approval on consequential calls are safer for editors than an agent clicking, whatever the speed.

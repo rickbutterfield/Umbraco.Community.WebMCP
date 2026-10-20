@@ -2,14 +2,24 @@ import type { UmbWebMcpToolsetApi } from '../extension-types.ts';
 import type { UmbWebMcpTool, UmbWebMcpToolCall } from '../model-context.ts';
 import { startOutcome } from '../outcome.ts';
 import { toPlain, waitUntil, whenWorkspaceReady } from '../utils.ts';
+import {
+	configToObject,
+	describeValueShape,
+	getBlockElementTypeKeys,
+	type UmbWebMcpElementType,
+} from './property-value-shape.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
+import { UmbDataTypeDetailRepository, type UmbDataTypeDetailModel } from '@umbraco-cms/backoffice/data-type';
 import {
 	UMB_DOCUMENT_PUBLISHING_WORKSPACE_CONTEXT,
 	UMB_DOCUMENT_WORKSPACE_CONTEXT,
 	type UmbDocumentPublishingWorkspaceContext,
 	type UmbDocumentWorkspaceContext,
 } from '@umbraco-cms/backoffice/document';
+import { UmbDocumentTypeDetailRepository } from '@umbraco-cms/backoffice/document-type';
+import { umbExtensionsRegistry } from '@umbraco-cms/backoffice/extension-registry';
+import { UmbId } from '@umbraco-cms/backoffice/id';
 import { UMB_MODAL_MANAGER_CONTEXT, type UmbModalContext } from '@umbraco-cms/backoffice/modal';
 import { UmbVariantId } from '@umbraco-cms/backoffice/variant';
 
@@ -33,6 +43,14 @@ const CULTURES_PROPERTY = {
 			'For documents that vary by culture: the cultures to act on, such as ["en-US", "da"], from variantOptions in umbraco_get_document_state. The tool answers the dialog that asks which variants, as choosing them there does.',
 	},
 };
+
+/** A property of the open document, with the key of its data type. */
+interface UmbDocumentPropertyRef {
+	alias: string;
+	dataTypeKey: string;
+	variesByCulture: boolean;
+	variesBySegment: boolean;
+}
 
 interface UmbCultureOption {
 	unique: string;
@@ -64,6 +82,8 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 	#workspace?: UmbDocumentWorkspaceContext;
 	#publishing?: UmbDocumentPublishingWorkspaceContext;
 	#modals: ReadonlyArray<UmbModalContext> = [];
+	#dataTypeRepository?: UmbDataTypeDetailRepository;
+	#documentTypeRepository?: UmbDocumentTypeDetailRepository;
 
 	constructor(host: UmbControllerHost) {
 		super(host);
@@ -204,6 +224,165 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 		};
 	}
 
+	async #getDataType(unique: string, cache: Map<string, Promise<UmbDataTypeDetailModel>>) {
+		let dataType = cache.get(unique);
+		if (!dataType) {
+			this.#dataTypeRepository ??= new UmbDataTypeDetailRepository(this);
+			const repository = this.#dataTypeRepository;
+			dataType = repository.requestByUnique(unique).then(({ data }) => {
+				if (!data) throw new Error(`Data type "${unique}" was not found.`);
+				return data;
+			});
+			cache.set(unique, dataType);
+		}
+		return dataType;
+	}
+
+	/**
+	 * The element types that blocks use, with their properties (including ones from compositions) and each property's
+	 * data type. Element types that can't be read are left out.
+	 */
+	async #getElementTypes(keys: Array<string>, dataTypes: Map<string, Promise<UmbDataTypeDetailModel>>) {
+		this.#documentTypeRepository ??= new UmbDocumentTypeDetailRepository(this);
+		const repository = this.#documentTypeRepository;
+		const readType = async (key: string) => (await repository.requestByUnique(key)).data;
+
+		const elementTypes = new Map<string, UmbWebMcpElementType>();
+		for (const key of keys) {
+			const elementType = await readType(key);
+			if (!elementType) continue;
+			const properties = [...elementType.properties];
+			const seen = new Set([key]);
+			const compositions = elementType.compositions.map((x) => x.contentType.unique);
+			while (compositions.length) {
+				const compositionKey = compositions.shift()!;
+				if (seen.has(compositionKey)) continue;
+				seen.add(compositionKey);
+				const composition = await readType(compositionKey);
+				if (!composition) continue;
+				properties.push(...composition.properties);
+				compositions.push(...composition.compositions.map((x) => x.contentType.unique));
+			}
+			elementTypes.set(key, {
+				key,
+				alias: elementType.alias,
+				name: elementType.name,
+				variesByCulture: elementType.variesByCulture,
+				variesBySegment: elementType.variesBySegment,
+				properties: await Promise.all(
+					properties.map(async (property) => {
+						const dataType = await this.#getDataType(property.dataType.unique, dataTypes);
+						return {
+							alias: property.alias,
+							name: property.name,
+							dataTypeKey: property.dataType.unique,
+							editorAlias: dataType.editorAlias ?? null,
+							editorUiAlias: dataType.editorUiAlias ?? null,
+							config: configToObject(dataType.values),
+							variesByCulture: property.variesByCulture,
+							variesBySegment: property.variesBySegment,
+						};
+					}),
+				),
+			});
+		}
+		return elementTypes;
+	}
+
+	/**
+	 * Describes the stored value of a property of the open document, or of any data type, such as a block element type
+	 * property's: the editor, its configuration, the value's shape and an example.
+	 */
+	async #getPropertyValueShape(input: UmbVariantInput & { alias?: string; dataTypeKey?: string }) {
+		const workspace = this.#getWorkspace();
+		let property: UmbDocumentPropertyRef | undefined;
+		if (input.alias) {
+			const properties = await workspace.structure.getContentTypeProperties();
+			const found = properties.find((x) => x.alias === input.alias);
+			if (!found) {
+				throw new Error(
+					`"${input.alias}" is not a property of this document. Properties: ${properties.map((x) => x.alias).join(', ') || 'none'}.`,
+				);
+			}
+			property = { ...found, dataTypeKey: found.dataType.unique };
+		} else if (!input.dataTypeKey) {
+			throw new Error('Pass the alias of a property of the open document, or a dataTypeKey.');
+		}
+
+		const dataTypes = new Map<string, Promise<UmbDataTypeDetailModel>>();
+		const dataTypeKey = property?.dataTypeKey ?? input.dataTypeKey!;
+		const dataType = await this.#getDataType(dataTypeKey, dataTypes);
+		const config = configToObject(dataType.values);
+		const editorAlias = dataType.editorAlias ?? null;
+		// A data type without a UI uses its schema's default, as the property does
+		const editorUiAlias =
+			dataType.editorUiAlias ||
+			(editorAlias ? umbExtensionsRegistry.getByAlias<any>(editorAlias)?.meta?.defaultPropertyEditorUiAlias : null) ||
+			null;
+
+		const culture = property && !property.variesByCulture ? null : (input.culture ?? null);
+		const segment = property && !property.variesBySegment ? null : (input.segment ?? null);
+		const values = property ? (workspace.getValues() ?? []).filter((x) => x.alias === property.alias) : [];
+		const current = values.find((x) => (x.culture ?? null) === culture && (x.segment ?? null) === segment);
+
+		const elementTypes = await this.#getElementTypes(getBlockElementTypeKeys(config), dataTypes);
+		const shape = describeValueShape({
+			editorAlias,
+			editorUiAlias,
+			config,
+			// An unknown editor's shape can come from another variant's value
+			value: (current ?? values[0])?.value,
+			elementTypes,
+			culture,
+			segment,
+			newKey: () => UmbId.new(),
+		});
+
+		return {
+			alias: property?.alias,
+			culture: property ? culture : undefined,
+			segment: property ? segment : undefined,
+			dataTypeKey,
+			dataTypeName: dataType.name,
+			editorAlias,
+			editorUiAlias,
+			...shape,
+			config,
+			blockTypes: elementTypes.size
+				? (Array.isArray(config.blocks) ? config.blocks : []).map((block: any) => {
+						const describe = (key: string | null | undefined) => {
+							const elementType = key ? elementTypes.get(key) : undefined;
+							return elementType
+								? {
+										alias: elementType.alias,
+										name: elementType.name,
+										variesByCulture: elementType.variesByCulture,
+										variesBySegment: elementType.variesBySegment,
+										// Without their configuration: ask for a property's dataTypeKey to get it
+										properties: elementType.properties.map((x) => ({
+											alias: x.alias,
+											name: x.name,
+											dataTypeKey: x.dataTypeKey,
+											editorAlias: x.editorAlias,
+											variesByCulture: x.variesByCulture,
+											variesBySegment: x.variesBySegment,
+										})),
+									}
+								: undefined;
+						};
+						return {
+							label: block.label || undefined,
+							contentElementTypeKey: block.contentElementTypeKey,
+							contentElementType: describe(block.contentElementTypeKey),
+							settingsElementTypeKey: block.settingsElementTypeKey || undefined,
+							settingsElementType: describe(block.settingsElementTypeKey),
+						};
+					})
+				: undefined,
+			currentValue: property ? (current?.value ?? null) : undefined,
+		};
+	}
+
 	getTools(): Array<UmbWebMcpTool> {
 		return [
 			{
@@ -229,10 +408,31 @@ export class UmbDocumentWebMcpToolset extends UmbControllerBase implements UmbWe
 				},
 			},
 			{
+				name: 'umbraco_get_property_value_shape',
+				title: 'Get property value shape',
+				description:
+					"Describes the stored format of a property value, as umbraco_set_document_property_value takes it. Returns the property editor (editorAlias and editorUiAlias), the data type configuration, the shape of the value as a TypeScript type, an example, notes such as allowed values, limits and how to build blocks, and the current value. For block editors, blockTypes lists the allowed element types and their properties; pass a property's dataTypeKey to describe a block property. Editors it does not know are described from the current value, with inferred true.",
+				annotations: { readOnlyHint: true, untrustedContentHint: true },
+				inputSchema: {
+					type: 'object',
+					properties: {
+						alias: { type: 'string', description: 'The property alias, from umbraco_get_document_state.' },
+						dataTypeKey: {
+							type: 'string',
+							description:
+								"Instead of alias: a data type key, such as a block element type property's dataTypeKey from blockTypes.",
+						},
+						...VARIANT_PROPERTIES,
+					},
+				},
+				execute: (input: UmbVariantInput & { alias?: string; dataTypeKey?: string } = {}) =>
+					this.#getPropertyValueShape(input),
+			},
+			{
 				name: 'umbraco_set_document_property_value',
 				title: 'Set document property value',
 				description:
-					'Sets a property value on the open document, by property alias. The value must be in the stored format of the property editor. Does not save.',
+					'Sets a property value on the open document, by property alias. The value must be in the stored format of the property editor, which umbraco_get_property_value_shape describes. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {

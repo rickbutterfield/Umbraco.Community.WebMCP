@@ -4,6 +4,7 @@
 	"umbraco_create_document",
 	"umbraco_get_document_state",
 	"umbraco_get_location",
+	"umbraco_get_property_value_shape",
 	"umbraco_get_tool_description",
 	"umbraco_get_tree_items",
 	"umbraco_get_workspace_info",
@@ -25,5 +26,6 @@
 	"umbraco_set_document_name",
 	"umbraco_set_document_property_value",
 	"umbraco_set_modal_value",
+	"umbraco_sort_modal_items",
 	"umbraco_submit_modal"
 ]
