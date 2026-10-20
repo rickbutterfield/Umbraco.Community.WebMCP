@@ -23,7 +23,7 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_list_modals` | always | Open modals, with their data, value and buttons (id and label), and the items of a sort modal | R, U |
 | `umbraco_click_modal_button` | always | Click a modal button by id, or by label | C |
 | `umbraco_set_modal_value` | always | Change a modal's pending value | U |
-| `umbraco_set_sort_order` | always | Put the items of a sort modal, such as Sort children, in a new order, as dragging them does | U |
+| `umbraco_sort_modal_items` | always | Put the items of a sort modal, such as Sort children, in a new order, as dragging them does | U |
 | `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
 | `umbraco_list_allowed_document_types` | Content section open | Allowed document types at root or under a parent | R, U |
 | `umbraco_open_new_document` / `umbraco_open_document` | Content section open | Open the document workspace | none |
@@ -54,7 +54,7 @@ current user's permissions still apply. The host decides what to do with them; f
   - `umbraco_run_workspace_action`: Save, Save and publish, and Save and preview all persist.
 - **Not consequential:** tools that only change what's on screen. Navigating, opening, staging edits in the open
   workspace (`umbraco_set_document_*`), choosing in a modal (`umbraco_select_picker_item`, `umbraco_set_modal_value`,
-  `umbraco_set_sort_order`), dismissing a modal and `umbraco_run_create_option`
+  `umbraco_sort_modal_items`), dismissing a modal and `umbraco_run_create_option`
   (which opens an unsaved workspace or a modal) change nothing until something is saved or submitted. Navigating away
   from unsaved changes shows the backoffice's own discard prompt.
 - **`untrustedContentHint`:** the result can contain text that editors wrote, such as names, property values or a
@@ -90,7 +90,7 @@ current user's permissions still apply. The host decides what to do with them; f
   tree, so a changed modal value doesn't always reach them: Forms' Move to ignores it and keeps Move disabled. The
   tool selects through the tree's own selection, checks the picker's filter (such as folders only) and returns the
   selection and buttons. Items inside a collapsed folder can still be picked by their unique.
-- **Sort with `umbraco_set_sort_order`, not `umbraco_set_modal_value`.** Sort children (documents and media) keeps
+- **Sort with `umbraco_sort_modal_items`, not `umbraco_set_modal_value`.** Sort children (documents and media) keeps
   its order in the table you drag rows in, not in the modal's value, so a changed value is ignored and Sort saves the
   old order. The tool reorders the table as a drag does and marks every item as moved, so the modal's own Sort button
   (`umbraco_click_modal_button`) saves the position of each. `umbraco_list_modals` lists the items as

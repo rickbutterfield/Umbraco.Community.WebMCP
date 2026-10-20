@@ -153,8 +153,8 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			},
 		},
 		{
-			name: 'umbraco_set_sort_order',
-			title: 'Set sort order',
+			name: 'umbraco_sort_modal_items',
+			title: 'Sort modal items',
 			description:
 				"Puts the items of an open sort modal, such as Sort children of a document or media item, in a new order, as dragging them does, so the modal's Sort button saves that order. Pass order: the items' uniques, or their names as shown. The items you list move to the top in that order, and the rest keep their order after them. Only the items the modal has loaded can be sorted: it loads 50 at a time, so click its Load more button first for more. Returns the new order and the modal's buttons; finish with umbraco_click_modal_button.",
 			annotations: { untrustedContentHint: true },

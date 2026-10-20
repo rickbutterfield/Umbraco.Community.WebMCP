@@ -164,10 +164,10 @@ test('sorts the children of a document in the Sort children modal', async ({ pag
 		const { key } = (await callWebMcp(page, 'umbraco_list_modals')).at(-1);
 
 		// The modal keeps its order in the table its rows are dragged in, not in its value, which Sort ignores
-		const refused = await callWebMcp(page, 'umbraco_set_sort_order', { key, order: ['Delta'] });
+		const refused = await callWebMcp(page, 'umbraco_sort_modal_items', { key, order: ['Delta'] });
 		expect(refused.error).toContain('Shown: Alpha');
 
-		const ordered = await callWebMcp(page, 'umbraco_set_sort_order', { key, order: ['Charlie'] });
+		const ordered = await callWebMcp(page, 'umbraco_sort_modal_items', { key, order: ['Charlie'] });
 		expect(ordered.sortableItems.map((item: any) => item.name)).toEqual(['Charlie', 'Alpha', 'Bravo']);
 		expect(ordered.buttons.map((button: any) => button.label)).toEqual(['Cancel', 'Sort']);
 
