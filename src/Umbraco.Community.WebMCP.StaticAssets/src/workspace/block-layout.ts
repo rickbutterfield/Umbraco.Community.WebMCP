@@ -2,6 +2,14 @@
 // Block Grid entry can hold areas, each with its own list of entries. The backoffice keeps these arrays frozen, so every
 // function returns new arrays and objects and leaves its input alone.
 
+/** The property editor schema aliases of Block List and Block Grid. */
+export const BLOCK_EDITOR_ALIASES = ['Umbraco.BlockList', 'Umbraco.BlockGrid'];
+
+/** Whether any of these property editor schema aliases is Block List or Block Grid. */
+export function hasBlockEditor(editorAliases: ReadonlyArray<string | null | undefined>) {
+	return editorAliases.some((alias) => BLOCK_EDITOR_ALIASES.includes(alias ?? ''));
+}
+
 export interface UmbBlockLayoutArea {
 	key: string;
 	items: Array<UmbBlockLayoutEntry>;

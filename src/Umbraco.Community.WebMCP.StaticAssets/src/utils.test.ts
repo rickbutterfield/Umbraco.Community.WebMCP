@@ -238,6 +238,24 @@ describe('workspace readiness', () => {
 		expect(isWorkspaceReady({})).to.equal(true);
 	});
 
+	it("is not ready until the structure has loaded its properties' data types", () => {
+		const details: Record<string, object | undefined> = { textstring: {}, blockList: undefined };
+		const structure = {
+			getContentTypeDataTypeUniques: () => Object.keys(details),
+			// Gives its current value on subscribe, as the backoffice's states do
+			contentTypeDataTypeDetailOf: (unique: string) => ({
+				subscribe: (next: (detail: unknown) => void) => {
+					next(details[unique]);
+					return { unsubscribe: () => {} };
+				},
+			}),
+		};
+
+		expect(isWorkspaceReady({ ...workspace(), structure })).to.equal(false);
+		details.blockList = {};
+		expect(isWorkspaceReady({ ...workspace(), structure })).to.equal(true);
+	});
+
 	it('waits until the workspace has loaded', async () => {
 		const loading = workspace({ loading: true });
 		setTimeout(() => (loading.loading.getIsOn = () => false), 30);

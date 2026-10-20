@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { AliasHelper, ConstantHelper, test } from '@umbraco-cms/acceptance-test-helpers';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { callTool as callWebMcp } from '../webmcp-tools';
+import { callTool as callWebMcp, webMcpToolNames } from '../webmcp-tools';
 
 // One block-editing job, done through WebMCP: on a page whose Block List holds a Hero ("Welcome") and a Quote ("Old
 // quote"), add a Quote "Fresh quote" at the top, change the Hero's text to "Welcome back" and remove the old Quote.
@@ -19,7 +19,19 @@ const names = {
 	blockGrid: 'WebMcpE2eBlockGrid',
 	documentType: 'WebMcpE2eBlocksPage',
 	document: 'WebMCP blocks page',
+	plainType: 'WebMcpE2ePlainPage',
+	plainDocument: 'WebMCP plain page',
+	compositionType: 'WebMcpE2eBlocksComposition',
+	composedType: 'WebMcpE2eComposedPage',
+	composedDocument: 'WebMCP composed page',
 };
+const blockToolNames = [
+	'umbraco_list_blocks',
+	'umbraco_add_block',
+	'umbraco_set_block_values',
+	'umbraco_remove_block',
+	'umbraco_move_block',
+];
 // The helpers name each property after its data type
 const listAlias = AliasHelper.toAlias(names.blockList);
 const gridAlias = AliasHelper.toAlias(names.blockGrid);
@@ -36,8 +48,12 @@ interface Arranged {
 }
 
 async function cleanUp(umbracoApi: any) {
-	await umbracoApi.document.ensureNameNotExists(names.document);
-	await umbracoApi.documentType.ensureNameNotExists(names.documentType);
+	for (const document of [names.document, names.plainDocument, names.composedDocument]) {
+		await umbracoApi.document.ensureNameNotExists(document);
+	}
+	for (const type of [names.documentType, names.plainType, names.composedType, names.compositionType]) {
+		await umbracoApi.documentType.ensureNameNotExists(type);
+	}
 	await umbracoApi.dataType.ensureNameNotExists(names.blockList);
 	await umbracoApi.dataType.ensureNameNotExists(names.blockGrid);
 	for (const type of [names.heroType, names.quoteType, names.sectionType, names.textType]) {
@@ -346,4 +362,43 @@ test('moves Block Grid blocks in and out of areas, and refuses what the grid doe
 
 	const removed = await call('umbraco_remove_block', { alias: gridAlias, key: section.key });
 	expect(removed.blocks.map((x: any) => x.key)).toEqual([text.key]);
+});
+
+test('offers the block tools only for document types with a block property, following the open document', async ({
+	page,
+	umbracoApi,
+}) => {
+	const arranged = await arrange(umbracoApi);
+	const plainType = await umbracoApi.documentType.createDefaultDocumentTypeWithAllowAsRoot(names.plainType);
+	const plainDocument = await umbracoApi.document.createDefaultDocument(names.plainDocument, plainType);
+	// A document type whose only Block List property comes from a composition
+	const blockList = (await umbracoApi.dataType.getByName(names.blockList)).id;
+	const composition = await umbracoApi.documentType.createDocumentTypeWithPropertyEditor(
+		names.compositionType,
+		names.blockList,
+		blockList,
+	);
+	const composedType = await umbracoApi.documentType.createDocumentTypeWithACompositionAndAllowAsRoot(
+		names.composedType,
+		composition,
+	);
+	const composedDocument = await umbracoApi.document.createDefaultDocument(names.composedDocument, composedType);
+	const blockToolsIn = (toolNames: Array<string>) => blockToolNames.filter((name) => toolNames.includes(name));
+	// Opens a document, then checks the block tools it reports and the ones WebMCP lists
+	const open = async (documentKey: string, expected: Array<string>) => {
+		const opened = await callWebMcp(page, 'umbraco_open_document', { documentKey });
+		expect(opened.workspaceTools).toContain('umbraco_get_document_state');
+		expect(blockToolsIn(opened.workspaceTools)).toEqual(expected);
+		await expect.poll(async () => blockToolsIn(await webMcpToolNames(page))).toEqual(expected);
+	};
+
+	await open(plainDocument, []);
+	// The document workspace stays open for each document after this, so the tools follow the document type
+	await open(arranged.documentId, blockToolNames);
+	await open(plainDocument, []);
+	await open(composedDocument, blockToolNames);
+
+	const listed = await callWebMcp(page, 'umbraco_list_blocks', { alias: listAlias });
+	expect(listed.editor).toBe('Umbraco.BlockList');
+	expect(listed.blocks).toEqual([]);
 });

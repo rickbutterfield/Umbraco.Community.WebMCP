@@ -33,10 +33,10 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
-| `umbraco_list_blocks` | document workspace open | The blocks in a Block List or Block Grid property (keys, block types, values, settings, grid areas) and the block types that can be added | R, U |
-| `umbraco_add_block` | document workspace open | Add a block of an allowed type, with values, at an index or in a Block Grid area | U |
-| `umbraco_set_block_values` | document workspace open | Set a block's values or settings by its key | U |
-| `umbraco_remove_block` / `umbraco_move_block` | document workspace open | Remove a block (with its area blocks), or move it to an index or into or out of a Block Grid area | U |
+| `umbraco_list_blocks` | document with a Block List or Block Grid property open | The blocks in a Block List or Block Grid property (keys, block types, values, settings, grid areas) and the block types that can be added | R, U |
+| `umbraco_add_block` | document with a Block List or Block Grid property open | Add a block of an allowed type, with values, at an index or in a Block Grid area | U |
+| `umbraco_set_block_values` | document with a Block List or Block Grid property open | Set a block's values or settings by its key | U |
+| `umbraco_remove_block` / `umbraco_move_block` | document with a Block List or Block Grid property open | Remove a block (with its area blocks), or move it to an index or into or out of a Block Grid area | U |
 | `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md).
@@ -71,7 +71,10 @@ current user's permissions still apply. The host decides what to do with them; f
 - **Opening a workspace waits for it, and says what it added.** `umbraco_navigate`, the `umbraco_open_*` tools, and
   create options and entity actions that navigate wait until the workspace has loaded (up to 10 s), then return
   `workspaceReady` and `workspaceTools`: the tools that exist only while that workspace is open. Workspace tools are
-  only registered once the workspace has loaded, so one that appears can be called straight away.
+  only registered once the workspace has loaded, including the data types of its properties, so one that appears can
+  be called straight away. Some depend on what's open: the block tools exist only while the document's type has a Block
+  List or Block Grid property (its own or from a composition). When the backoffice reuses the open workspace for
+  another document, the tools change with it, and the open tools wait for that before returning `workspaceTools`.
 - **Actions report what happened.** `umbraco_run_entity_action`, `umbraco_run_workspace_action` and the document save
   tools return the `notifications` the backoffice showed during the action, and `navigatedTo` when the path changed.
   Umbraco 18 shows no notification for routine saves, trashes or deletes, so the list is often empty; validation

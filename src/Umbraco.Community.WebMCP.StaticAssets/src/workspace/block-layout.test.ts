@@ -7,6 +7,7 @@ import {
 	findBlockType,
 	fitColumnSpan,
 	gridLayoutDefaults,
+	hasBlockEditor,
 	insertBlock,
 	mergeValues,
 	removeBlock,
@@ -212,6 +213,15 @@ describe('block layout', () => {
 			expect(fitColumnSpan(blockType, undefined, 12)).to.equal(12);
 			expect(fitColumnSpan(blockType, 12, 6)).to.equal(4);
 			expect(fitColumnSpan({ contentElementTypeKey: 'text' }, 12, 6)).to.equal(6);
+		});
+	});
+
+	describe('hasBlockEditor', () => {
+		it('is true when a Block List or Block Grid data type is among them, and false otherwise', () => {
+			expect(hasBlockEditor(['Umbraco.TextBox', 'Umbraco.BlockList'])).to.equal(true);
+			expect(hasBlockEditor([undefined, 'Umbraco.BlockGrid'])).to.equal(true);
+			expect(hasBlockEditor(['Umbraco.TextBox', 'Umbraco.RichText', null])).to.equal(false);
+			expect(hasBlockEditor([])).to.equal(false);
 		});
 	});
 });
