@@ -61,6 +61,11 @@ npx playwright test --project=webmcp --project=webmcp-polyfill   # the WebMCP en
 `webmcp-polyfill` runs the WebMCP tests in Playwright's bundled Chromium with Google's WebMCP polyfill
 (`tests/webmcp/webmcp-polyfill.js`) instead of Chrome's own WebMCP.
 
+`tests/webmcp/blocks.spec.ts` does one block-editing job (Block List and Block Grid) twice: with the document tools
+alone, rewriting each property's stored value, and with the block tools. Each run adds a `job` annotation with its
+calls and the characters of input an agent would write. On 20-10-2026: 5 calls and 1,794 characters, plus two keys no
+WebMCP tool returns, against 8 calls and 653 characters with the block tools.
+
 Agent settings: `BENCH_MODEL` (default `sonnet`) and `BENCH_MAX_USD`, the budget per run (default 1). The agent
 runs outside the repo with only the one MCP server and no built-in tools, but your user-level `CLAUDE.md` still
 loads, for every variant alike. Chrome DevTools MCP runs with its usage statistics and CrUX lookups off.
