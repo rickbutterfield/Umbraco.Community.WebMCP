@@ -105,6 +105,62 @@ test('creates a document in two cultures and publishes one', async ({ page, umbr
 	}
 });
 
+test('describes a block list value and saves the example it gives', async ({ page, umbracoApi }) => {
+	const elementTypeName = 'WebMcpE2eElementType';
+	const blockListName = 'WebMcpE2eBlockList';
+	await umbracoApi.dataType.ensureNameNotExists(blockListName);
+	try {
+		const textstring = await umbracoApi.dataType.getByName('Textstring');
+		const elementTypeId = await umbracoApi.documentType.createDefaultElementType(
+			elementTypeName,
+			'TestGroup',
+			'Textstring',
+			textstring.id,
+		);
+		const blockListId = await umbracoApi.dataType.createBlockListDataTypeWithABlock(blockListName, elementTypeId);
+		const documentTypeId = await umbracoApi.documentType.createDocumentTypeWithPropertyEditor(
+			documentTypeName,
+			blockListName,
+			blockListId,
+		);
+		await callWebMcp(page, 'umbraco_open_new_document', { documentTypeKey: documentTypeId });
+		const [{ alias }] = (await callWebMcp(page, 'umbraco_get_document_state')).properties;
+
+		const shape = await callWebMcp(page, 'umbraco_get_property_value_shape', { alias });
+		expect(shape.editorAlias).toBe('Umbraco.BlockList');
+		expect(shape.inferred).toBe(false);
+		const [blockType] = shape.blockTypes;
+		expect(blockType.contentElementTypeKey).toBe(elementTypeId);
+		const [elementProperty] = blockType.contentElementType.properties;
+		expect(elementProperty.editorAlias).toBe('Umbraco.TextBox');
+		expect(shape.example.contentData[0].contentTypeKey).toBe(elementTypeId);
+		expect(shape.example.expose).toHaveLength(1);
+
+		// A block property is described by its data type
+		const propertyShape = await callWebMcp(page, 'umbraco_get_property_value_shape', {
+			dataTypeKey: elementProperty.dataTypeKey,
+		});
+		expect(propertyShape.shape).toBe('string');
+
+		const value = structuredClone(shape.example);
+		value.contentData[0].values[0].value = 'Block headline';
+		await callWebMcp(page, 'umbraco_set_document_property_value', { alias, value });
+		await callWebMcp(page, 'umbraco_set_document_name', { name: documentName });
+		const saved = await callWebMcp(page, 'umbraco_save_document');
+		expect(saved.completed).toBe(true);
+
+		const document = await umbracoApi.document.getByName(documentName);
+		const stored = document.values.find((x: any) => x.alias === alias).value;
+		expect(stored.contentData[0].values[0].value).toBe('Block headline');
+		expect(stored.layout['Umbraco.BlockList']).toHaveLength(1);
+	} finally {
+		await umbracoApi.document.ensureNameNotExists(documentName);
+		await umbracoApi.documentType.ensureNameNotExists(documentTypeName);
+		await umbracoApi.dataType.ensureNameNotExists(blockListName);
+		await umbracoApi.documentType.ensureNameNotExists(elementTypeName);
+	}
+});
+
 test('moves a form into a folder by picking the folder in the Move to picker', async ({ page, umbracoApi }) => {
 	const forms = new FormsApi(umbracoApi);
 	await forms.cleanUp(BENCH_FORM);

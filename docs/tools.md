@@ -32,6 +32,7 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_run_workspace_action` | any workspace open | Run a workspace footer button by label, such as Save; `umbraco_get_workspace_info` lists them | C |
 | `umbraco_get_document_state` | document workspace open | Key, variants, variant options (every culture, created or not), properties and current (unsaved) values | R, U |
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
+| `umbraco_get_property_value_shape` | document workspace open | The stored format a property's value needs: editor, data type configuration, shape, example and allowed block types | R, U |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
 | `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
@@ -86,6 +87,14 @@ current user's permissions still apply. The host decides what to do with them; f
   document doesn't have or the user can't edit, and, when publishing, mandatory languages that aren't published yet
   and aren't included, which the server would reject. Without `cultures`, the tool returns `completed: false` and
   `variantDialog` with the open dialog. Scheduling and publishing with descendants still open their own dialogs.
+- **Ask for a value's format before setting it.** `umbraco_set_document_property_value` takes the stored format, which
+  differs by editor. `umbraco_get_property_value_shape` returns the property's editor (`editorAlias`, `editorUiAlias`),
+  its data type configuration, the shape as a TypeScript type, an example and notes, from the backoffice's own value
+  types and the data type at runtime. Block editors also get `blockTypes`, with each allowed element type's properties;
+  pass a property's `dataTypeKey` to describe it. Editors it doesn't know are described from the current value, with
+  `inferred: true`. It covers text, rich text, media, content and multinode tree pickers, multi URL pickers, block list,
+  grid and single block, tags, dropdowns, checkbox and radio button lists, toggles, numbers, sliders, dates, colors,
+  multiple text strings and upload fields.
 - **Pick with `umbraco_select_picker_item`, not `umbraco_set_modal_value`.** Pickers keep their selection in their
   tree, so a changed modal value doesn't always reach them: Forms' Move to ignores it and keeps Move disabled. The
   tool selects through the tree's own selection, checks the picker's filter (such as folders only) and returns the
