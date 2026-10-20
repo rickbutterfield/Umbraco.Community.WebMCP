@@ -52,7 +52,7 @@ current user's permissions still apply. The host decides what to do with them; f
   - `umbraco_submit_modal`: whatever opened the modal acts on the value.
   - `umbraco_run_workspace_action`: Save, Save and publish, and Save and preview all persist.
 - **Not consequential:** tools that only change what's on screen. Navigating, opening, staging edits in the open
-  workspace (`umbraco_set_document_*`, `umbraco_set_modal_value`), dismissing a modal and `umbraco_run_create_option`
+  workspace (`umbraco_set_document_*`), choosing in a modal (`umbraco_select_picker_item`, `umbraco_set_modal_value`), dismissing a modal and `umbraco_run_create_option`
   (which opens an unsaved workspace or a modal) change nothing until something is saved or submitted. Navigating away
   from unsaved changes shows the backoffice's own discard prompt.
 - **`untrustedContentHint`:** the result can contain text that editors wrote, such as names, property values or a
@@ -78,6 +78,10 @@ current user's permissions still apply. The host decides what to do with them; f
   `cancel` in confirmation dialogs) and label. Labels change when the backoffice is translated; ids don't.
 - **Actions that open a modal don't wait for it.** They return straight away with `completed: false`, so the agent
   can finish the modal with the modal tools.
+- **Pick with `umbraco_select_picker_item`, not `umbraco_set_modal_value`.** Pickers keep their selection in their
+  tree, so a changed modal value doesn't always reach them: Forms' Move to ignores it and keeps Move disabled. The
+  tool selects through the tree's own selection, checks the picker's filter (such as folders only) and returns the
+  selection and buttons. Items inside a collapsed folder can still be picked by their unique.
 - **Prefer `umbraco_click_modal_button` to `umbraco_submit_modal`.** Many modals do their work in the button handler,
   so submitting through the modal's context skips it.
 - **When two registrations share a tool name,** for example a document opened in a modal on top of another, the

@@ -29,11 +29,14 @@ export function findModalElement(key: string, root: Node = document.body) {
 }
 
 /**
- * The buttons a modal renders, without those of modals opened on top of it.
+ * The buttons a modal renders, without those of modals opened on top of it, or the actions of the menu and tree items
+ * inside it, such as a picker's "..." and "Move..." on each row.
  */
 export function getButtons(modalElement: Element): Array<UmbWebMcpModalButton> {
-	const isOtherModal = (element: Element) => element !== modalElement && (element as any).modalContext !== undefined;
-	return [...walk(modalElement, isOtherModal)]
+	const skip = (element: Element) =>
+		element.localName === 'uui-menu-item' ||
+		(element !== modalElement && (element as any).modalContext !== undefined);
+	return [...walk(modalElement, skip)]
 		.filter((element) => element.localName === 'uui-button')
 		.map((element) => ({
 			element: element as HTMLElement,

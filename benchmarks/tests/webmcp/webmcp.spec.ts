@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { ConstantHelper, test } from '@umbraco-cms/acceptance-test-helpers';
 import path from 'node:path';
+import { BENCH_FOLDER, BENCH_FOLDER_ID, BENCH_FORM, FormsApi } from '../agent/forms-api';
 import { callTool as callWebMcp, webMcpToolNames } from '../webmcp-tools';
 
 // Checks the tools through WebMCP (document.modelContext). The webmcp project uses Chrome's own implementation
@@ -69,4 +70,38 @@ test('creates and saves a document through WebMCP alone', async ({ page, umbraco
 
 	expect(saved.completed).toBe(true);
 	await expect.poll(() => umbracoApi.document.doesNameExist(documentName)).toBeTruthy();
+});
+
+test('moves a form into a folder by picking the folder in the Move to picker', async ({ page, umbracoApi }) => {
+	const forms = new FormsApi(umbracoApi);
+	await forms.cleanUp(BENCH_FORM);
+	try {
+		await forms.createFolder(BENCH_FOLDER_ID, BENCH_FOLDER);
+		const formId = await forms.createForm(BENCH_FORM);
+		await page.goto('/umbraco/section/forms');
+
+		const ran = await callWebMcp(page, 'umbraco_run_entity_action', {
+			entityType: 'forms-form',
+			unique: formId,
+			action: 'Move',
+		});
+		expect(ran.completed).toBe(false);
+		const { key } = (await callWebMcp(page, 'umbraco_list_modals')).at(-1);
+
+		// Forms' Move to only lets folders be picked
+		const refused = await callWebMcp(page, 'umbraco_select_picker_item', { key, name: BENCH_FORM });
+		expect(refused.error).toContain("can't be picked");
+
+		const picked = await callWebMcp(page, 'umbraco_select_picker_item', { key, name: BENCH_FOLDER });
+		expect(picked.selection).toEqual([{ unique: BENCH_FOLDER_ID, name: BENCH_FOLDER }]);
+		// Only the modal's own buttons, not the actions on each row of the picker's tree
+		expect(picked.buttons.map((button: any) => button.label)).toEqual(['Cancel', 'Move']);
+		expect(picked.buttons.find((button: any) => button.label === 'Move').disabled).toBe(false);
+
+		const moved = await callWebMcp(page, 'umbraco_click_modal_button', { key, label: 'Move' });
+		expect(moved.closed).toBe(true);
+		await expect.poll(async () => (await forms.getFormByName(BENCH_FORM))?.parentUnique).toBe(BENCH_FOLDER_ID);
+	} finally {
+		await forms.cleanUp(BENCH_FORM);
+	}
 });

@@ -21,6 +21,7 @@
 	"umbraco_save_and_publish_document",
 	"umbraco_save_document",
 	"umbraco_search_entities",
+	"umbraco_select_picker_item",
 	"umbraco_set_document_name",
 	"umbraco_set_document_property_value",
 	"umbraco_set_modal_value",
