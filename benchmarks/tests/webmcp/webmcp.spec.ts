@@ -72,6 +72,39 @@ test('creates and saves a document through WebMCP alone', async ({ page, umbraco
 	await expect.poll(() => umbracoApi.document.doesNameExist(documentName)).toBeTruthy();
 });
 
+test('creates a document in two cultures and publishes one', async ({ page, umbracoApi }) => {
+	const variantTypeName = 'WebMcpE2eVariantDocumentType';
+	const englishName = 'WebMCP variant page';
+	await umbracoApi.language.ensureIsoCodeNotExists('da');
+	try {
+		await umbracoApi.language.createDanishLanguage();
+		await umbracoApi.documentType.createDocumentTypeWithAllowVaryByCulture(variantTypeName);
+		// The backoffice reads the languages when it loads
+		await page.reload();
+		await expect.poll(() => webMcpToolNames(page)).toContain('umbraco_create_document');
+
+		const created = await callWebMcp(page, 'umbraco_create_document', {
+			documentType: variantTypeName,
+			names: { 'en-US': englishName, da: 'WebMCP variant side' },
+		});
+		expect(created.completed).toBe(true);
+		const options = Object.fromEntries(created.state.variantOptions.map((x: any) => [x.culture, x.state]));
+		expect(options).toEqual({ 'en-US': 'Draft', da: 'Draft' });
+
+		const refused = await callWebMcp(page, 'umbraco_save_and_publish_document', { cultures: ['fr'] });
+		expect(refused.error).toContain('is not a culture of this document');
+
+		const published = await callWebMcp(page, 'umbraco_save_and_publish_document', { cultures: ['en-US'] });
+		expect(published.completed).toBe(true);
+		const states = Object.fromEntries(published.state.variants.map((x: any) => [x.culture, x.state]));
+		expect(states).toEqual({ 'en-US': 'Published', da: 'Draft' });
+	} finally {
+		await umbracoApi.document.ensureNameNotExists(englishName);
+		await umbracoApi.documentType.ensureNameNotExists(variantTypeName);
+		await umbracoApi.language.ensureIsoCodeNotExists('da');
+	}
+});
+
 test('moves a form into a folder by picking the folder in the Move to picker', async ({ page, umbracoApi }) => {
 	const forms = new FormsApi(umbracoApi);
 	await forms.cleanUp(BENCH_FORM);

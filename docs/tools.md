@@ -26,10 +26,10 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
 | `umbraco_list_allowed_document_types` | Content section open | Allowed document types at root or under a parent | R, U |
 | `umbraco_open_new_document` / `umbraco_open_document` | Content section open | Open the document workspace | none |
-| `umbraco_create_document` | Content section open | Open a new document, set its name and values, and save or publish it, in one call (invariant documents) | C, U |
+| `umbraco_create_document` | Content section open | Open a new document, set its name (or names by culture) and values, and save or publish it, in one call | C, U |
 | `umbraco_get_workspace_info` | any workspace open | Workspace alias, entity type, key, new and unsaved state, and footer actions | R |
 | `umbraco_run_workspace_action` | any workspace open | Run a workspace footer button by label, such as Save; `umbraco_get_workspace_info` lists them | C |
-| `umbraco_get_document_state` | document workspace open | Key, variants, properties and current (unsaved) values | R, U |
+| `umbraco_get_document_state` | document workspace open | Key, variants, variant options (every culture, created or not), properties and current (unsaved) values | R, U |
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
@@ -78,6 +78,12 @@ current user's permissions still apply. The host decides what to do with them; f
   `cancel` in confirmation dialogs) and label. Labels change when the backoffice is translated; ids don't.
 - **Actions that open a modal don't wait for it.** They return straight away with `completed: false`, so the agent
   can finish the modal with the modal tools.
+- **Documents that vary by culture.** Saving or publishing one opens a dialog to choose the variants. Pass `cultures`
+  to `umbraco_save_document`, `umbraco_save_and_publish_document` or `umbraco_create_document` (which takes `names`
+  and `culturedValues` by culture) and the tool answers the dialog with those variants. It refuses cultures the
+  document doesn't have or the user can't edit, and, when publishing, mandatory languages that aren't published yet
+  and aren't included, which the server would reject. Without `cultures`, the tool returns `completed: false` and
+  `variantDialog` with the open dialog. Scheduling and publishing with descendants still open their own dialogs.
 - **Pick with `umbraco_select_picker_item`, not `umbraco_set_modal_value`.** Pickers keep their selection in their
   tree, so a changed modal value doesn't always reach them: Forms' Move to ignores it and keeps Move disabled. The
   tool selects through the tree's own selection, checks the picker's filter (such as folders only) and returns the
