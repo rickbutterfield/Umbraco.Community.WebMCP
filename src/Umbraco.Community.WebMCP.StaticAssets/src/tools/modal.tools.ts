@@ -3,7 +3,9 @@ import { startOutcome } from '../outcome.ts';
 import { toPlain, waitUntil } from '../utils.ts';
 import { findButton, findModalElement, getButtons } from './modal-buttons.ts';
 import { findPicker, findPickerItem } from './picker.ts';
+import { applyOrder, findSortableTable, getSortableItems, orderItems } from './sortable.ts';
 import { UmbControllerBase } from '@umbraco-cms/backoffice/class-api';
+import { UmbTableSortedEvent } from '@umbraco-cms/backoffice/components';
 import type { UmbControllerHost } from '@umbraco-cms/backoffice/controller-api';
 import { UmbLocalizationController } from '@umbraco-cms/backoffice/localization-api';
 import { UMB_MODAL_MANAGER_CONTEXT, type UmbModalContext } from '@umbraco-cms/backoffice/modal';
@@ -54,20 +56,22 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 			name: 'umbraco_list_modals',
 			title: 'List open modals',
 			description:
-				'Lists the open modals and sidebars, topmost last, with the data they were opened with, their current value and their buttons (id, label and whether disabled).',
+				'Lists the open modals and sidebars, topmost last, with the data they were opened with, their current value and their buttons (id, label and whether disabled). A modal whose items are sorted by dragging, such as Sort children, also lists them in sortableItems, in their current order.',
 			annotations: { readOnlyHint: true, untrustedContentHint: true },
 			async execute() {
-				return watcher.modals.map((modal) => ({
-					key: modal.key,
-					alias: modal.alias.toString(),
-					type: modal.type,
-					data: toPlain(modal.data),
-					value: toPlain(modal.getValue()),
-					buttons: (() => {
-						const element = findModalElement(modal.key);
-						return element ? getButtons(element).map(({ id, label, disabled }) => ({ id, label, disabled })) : null;
-					})(),
-				}));
+				return watcher.modals.map((modal) => {
+					const element = findModalElement(modal.key);
+					const table = element ? findSortableTable(element) : undefined;
+					return {
+						key: modal.key,
+						alias: modal.alias.toString(),
+						type: modal.type,
+						data: toPlain(modal.data),
+						value: toPlain(modal.getValue()),
+						buttons: element ? getButtons(element).map(({ id, label, disabled }) => ({ id, label, disabled })) : null,
+						...(table ? { sortableItems: getSortableItems(table) } : {}),
+					};
+				});
 			},
 		},
 		{
@@ -144,6 +148,50 @@ export function createModalTools(host: UmbControllerHost): Array<UmbWebMcpTool> 
 					multiple: tree.selection.getMultiple(),
 					shown: items,
 					value: toPlain(modal.getValue()),
+					buttons: getButtons(element).map(({ id, label, disabled }) => ({ id, label, disabled })),
+				};
+			},
+		},
+		{
+			name: 'umbraco_set_sort_order',
+			title: 'Set sort order',
+			description:
+				"Puts the items of an open sort modal, such as Sort children of a document or media item, in a new order, as dragging them does, so the modal's Sort button saves that order. Pass order: the items' uniques, or their names as shown. The items you list move to the top in that order, and the rest keep their order after them. Only the items the modal has loaded can be sorted: it loads 50 at a time, so click its Load more button first for more. Returns the new order and the modal's buttons; finish with umbraco_click_modal_button.",
+			annotations: { untrustedContentHint: true },
+			inputSchema: {
+				type: 'object',
+				properties: {
+					...KEY_PROPERTY,
+					order: {
+						type: 'array',
+						items: { type: 'string' },
+						description:
+							'Uniques or names of the items, in their new order, from sortableItems in umbraco_list_modals.',
+					},
+				},
+				required: ['key', 'order'],
+			},
+			async execute({ key, order }: { key: string; order: Array<string> }, call?: UmbWebMcpToolCall) {
+				watcher.get(key);
+				const element = findModalElement(key);
+				if (!element) throw new Error(`The element for modal "${key}" is not rendered yet. Try again shortly.`);
+				// The modal loads its items after it opens
+				await waitUntil(() => findSortableTable(element) !== undefined, call?.signal, 3000);
+				const table = findSortableTable(element);
+				if (!table) {
+					throw new Error(
+						'This modal has no items to sort, or they have not loaded yet. Check its sortableItems with umbraco_list_modals.',
+					);
+				}
+				const ordered = orderItems(getSortableItems(table), order);
+				applyOrder(
+					table,
+					ordered.map((x) => x.unique),
+					(itemId) => new UmbTableSortedEvent({ itemId }),
+				);
+				await new Promise((resolve) => setTimeout(resolve, 100));
+				return {
+					sortableItems: getSortableItems(table),
 					buttons: getButtons(element).map(({ id, label, disabled }) => ({ id, label, disabled })),
 				};
 			},

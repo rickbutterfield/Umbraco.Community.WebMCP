@@ -25,5 +25,6 @@
 	"umbraco_set_document_name",
 	"umbraco_set_document_property_value",
 	"umbraco_set_modal_value",
+	"umbraco_set_sort_order",
 	"umbraco_submit_modal"
 ]
