@@ -37,7 +37,9 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
 | `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
 
-Packages can add their own tools; see [Adding tools from a package](extending.md).
+Packages can add their own tools; see [Adding tools from a package](extending.md). The test site's example Forms
+toolset adds `umbraco_forms_*` tools for the form designer, listed in
+[Example: the Forms designer](extending.md#example-the-forms-designer).
 
 ## Annotations
 

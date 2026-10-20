@@ -105,6 +105,169 @@ test('creates a document in two cultures and publishes one', async ({ page, umbr
 	}
 });
 
+test('sets question settings, conditions and workflows with the example Forms toolset', async ({
+	page,
+	umbracoApi,
+}) => {
+	const forms = new FormsApi(umbracoApi);
+	await forms.cleanUp(BENCH_FORM);
+	try {
+		const formId = await forms.createForm(BENCH_FORM);
+		await page.goto('/umbraco/section/forms');
+		const opened = await callWebMcp(page, 'umbraco_open_entity', { entityType: 'forms-form', unique: formId });
+		expect(opened.workspaceTools).toContain('umbraco_forms_add_workflow');
+
+		await callWebMcp(page, 'umbraco_forms_add_fields', {
+			fields: [
+				{ fieldType: 'Dropdown', caption: 'Contact me by', options: ['Email', 'Phone'] },
+				{ fieldType: 'Short answer', caption: 'Phone number' },
+			],
+		});
+
+		// Question settings
+		const before = await callWebMcp(page, 'umbraco_forms_get_field_settings', { field: 'Phone number' });
+		expect(before.fieldTypeSupports).toEqual({ mandatory: true, regex: true, options: false });
+		expect(before.availableSettings.map((x: any) => x.alias)).toContain('Placeholder');
+		const unknown = await callWebMcp(page, 'umbraco_forms_set_field_settings', {
+			field: 'phoneNumber',
+			settings: { Colour: 'red' },
+		});
+		expect(unknown.error).toContain('has no setting "Colour"');
+		const noOptions = await callWebMcp(page, 'umbraco_forms_set_field_settings', {
+			field: 'phoneNumber',
+			options: ['a'],
+		});
+		expect(noOptions.error).toContain("don't take options");
+		const set = await callWebMcp(page, 'umbraco_forms_set_field_settings', {
+			field: 'phoneNumber',
+			mandatory: true,
+			requiredErrorMessage: 'We need your number',
+			regex: '^[0-9 +]+$',
+			invalidErrorMessage: 'Digits only',
+			settings: { Placeholder: '+45 12 34 56 78' },
+		});
+		expect(set.mandatory).toBe(true);
+		expect(set.settings.Placeholder).toBe('+45 12 34 56 78');
+
+		// Conditions on a question and its group
+		const badValue = await callWebMcp(page, 'umbraco_forms_set_condition', {
+			id: 'Phone number',
+			rules: [{ field: 'Contact me by', value: 'Fax' }],
+		});
+		expect(badValue.error).toContain('has the options Email, Phone');
+		const fieldCondition = await callWebMcp(page, 'umbraco_forms_set_condition', {
+			id: 'Phone number',
+			rules: [{ field: 'Contact me by', operator: 'Is', value: 'Phone' }],
+		});
+		expect(fieldCondition.appliesTo).toBe('field');
+		const design = await callWebMcp(page, 'umbraco_forms_get_form_design');
+		const groupId = design.pages[0].groups[0].id;
+		const groupCondition = await callWebMcp(page, 'umbraco_forms_set_condition', {
+			id: groupId,
+			action: 'Hide',
+			logic: 'Any',
+			rules: [{ field: 'contactMeBy', operator: 'IsNot', value: 'Email' }],
+		});
+		expect(groupCondition.appliesTo).toBe('group');
+
+		// Workflows
+		const types = await callWebMcp(page, 'umbraco_forms_list_workflow_types');
+		const sendEmail = types.find((x: any) => x.name === 'Send email');
+		expect(sendEmail.settings.filter((x: any) => x.mandatory).map((x: any) => x.alias)).toEqual([
+			'Email',
+			'Subject',
+			'Message',
+		]);
+		const missing = await callWebMcp(page, 'umbraco_forms_add_workflow', {
+			workflowType: 'Send email',
+			settings: { Email: 'a@example.com' },
+		});
+		expect(missing.error).toContain('needs these settings: Subject, Message');
+		const email = await callWebMcp(page, 'umbraco_forms_add_workflow', {
+			workflowType: 'sendEmail',
+			name: 'Notify the team',
+			settings: {
+				Email: 'team@example.com',
+				Subject: 'New enquiry',
+				Message: 'Someone got in touch.',
+				Attachment: true,
+			},
+		});
+		expect(email.stage).toBe('onSubmit');
+		const xml = await callWebMcp(page, 'umbraco_forms_add_workflow', {
+			workflowType: 'Post as XML',
+			settings: { Url: 'https://example.com/hook', Method: 'PUT' },
+		});
+		const badMethod = await callWebMcp(page, 'umbraco_forms_set_workflow', {
+			workflow: xml.id,
+			settings: { Method: 'PATCH' },
+		});
+		expect(badMethod.error).toContain('takes POST, GET, PUT, DELETE');
+		const changed = await callWebMcp(page, 'umbraco_forms_set_workflow', {
+			workflow: 'Notify the team',
+			active: false,
+			settings: { Subject: 'New enquiry from the site' },
+		});
+		expect(changed.active).toBe(false);
+		await callWebMcp(page, 'umbraco_forms_set_condition', {
+			id: email.id,
+			rules: [{ field: 'Contact me by', value: 'Email' }],
+		});
+		const removed = await callWebMcp(page, 'umbraco_forms_remove_workflow', { workflow: xml.id });
+		expect(removed.removed).toBe(xml.id);
+		const listed = await callWebMcp(page, 'umbraco_forms_list_workflows');
+		// The blank form's scaffold already sends a template email
+		expect(listed.onSubmit.map((x: any) => x.name)).toEqual([
+			expect.stringContaining('Send template email'),
+			'Notify the team',
+		]);
+		// Whitespace counts as empty, as on the server
+		const blank = await callWebMcp(page, 'umbraco_forms_set_workflow', {
+			workflow: email.id,
+			settings: { Subject: '  ' },
+		});
+		expect(blank.error).toContain('needs these settings: Subject');
+
+		const saved = await callWebMcp(page, 'umbraco_run_workspace_action', { action: 'Forms.WorkspaceAction.Form.Save' });
+		expect(saved.completed).toBe(true);
+
+		// What Forms saved
+		const form = await forms.getFormByName(BENCH_FORM);
+		const fields = FormsApi.fields(form);
+		const contact = fields.find((x) => x.alias === 'contactMeBy');
+		const phone = fields.find((x) => x.alias === 'phoneNumber');
+		expect(phone).toMatchObject({
+			mandatory: true,
+			requiredErrorMessage: 'We need your number',
+			regex: '^[0-9 +]+$',
+			invalidErrorMessage: 'Digits only',
+		});
+		expect(phone.settings.Placeholder).toBe('+45 12 34 56 78');
+		expect(phone.condition).toMatchObject({
+			enabled: true,
+			actionType: 'Show',
+			logicType: 'All',
+			rules: [{ field: contact.id, operator: 'Is', value: 'Phone' }],
+		});
+		const fieldset = form.pages[0].fieldSets[0];
+		expect(fieldset.condition).toMatchObject({
+			enabled: true,
+			actionType: 'Hide',
+			logicType: 'Any',
+			rules: [{ field: contact.id, operator: 'IsNot', value: 'Email' }],
+		});
+		expect(form.formWorkflows.onSubmit).toHaveLength(2);
+		expect(form.formWorkflows.onSubmit[1]).toMatchObject({
+			name: 'Notify the team',
+			active: false,
+			settings: { Email: 'team@example.com', Subject: 'New enquiry from the site', Attachment: 'True' },
+			condition: { enabled: true, rules: [{ field: contact.id, value: 'Email' }] },
+		});
+	} finally {
+		await forms.cleanUp(BENCH_FORM);
+	}
+});
+
 test('describes a block list value and saves the example it gives', async ({ page, umbracoApi }) => {
 	const elementTypeName = 'WebMcpE2eElementType';
 	const blockListName = 'WebMcpE2eBlockList';

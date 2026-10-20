@@ -140,7 +140,8 @@ export { MyShopOrderToolset as api };
 Prefix tool names with your package (`myshop_…`), and mark any tool that can save, delete, move or publish
 `consequentialHint`. [Adding tools from a package](docs/extending.md) has the full contract and guidelines. The test
 site's [Forms example](examples/Umbraco.Community.WebMCP.TestSite/wwwroot/App_Plugins/WebMcpFormsExample) is a
-complete toolset for the Forms designer in about 300 lines of plain JavaScript, and the one the benchmarks use.
+complete toolset for the Forms designer in plain JavaScript: questions and their settings, conditions and workflows.
+The benchmarks use it, and [Adding tools from a package](docs/extending.md#example-the-forms-designer) lists its tools.
 
 ## Running locally
 
