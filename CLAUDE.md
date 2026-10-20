@@ -19,6 +19,7 @@ Use the terms in `docs/vocabulary.md`. In particular, "Copilot bridge" is the Um
 | File | Kind | Keep it in step when |
 |---|---|---|
 | `README.md` | Overview: what it is, enabling, running, links | Setup or settings change |
+| `CHANGELOG.md` | Changes per release, in [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format | A change a package user would notice is merged: add it under `[Unreleased]` |
 | `docs/tools.md` | Reference: every tool and how to call it | A tool is added, removed or changes behaviour |
 | `docs/extending.md` | Reference: toolset extensions for package authors | The toolset types or their contract change |
 | `docs/vocabulary.md` | Reference: terms | A new concept gets a name |
@@ -67,7 +68,9 @@ dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --launch-profile
 `wwwroot` is gitignored, so build the client before `dotnet build`, `dotnet run` or `dotnet pack`, or the site serves
 no backoffice assets. CI (`.github/workflows/build.yml`) installs, lints, tests and builds the client, then builds and packs.
 
-To release, set the version in `version.json`, then push a tag named `release-<version>` (for example
+To release, set the version in `version.json` and rename `CHANGELOG.md`'s `[Unreleased]` section to
+`[<version>] - YYYY-MM-DD` (Keep a Changelog uses ISO dates), with a new empty `[Unreleased]` above it and the
+compare links at the bottom updated. Then push a tag named `release-<version>` (for example
 `release-1.0.0-alpha`). `.github/workflows/release.yml` runs the build and pushes both packages
 (`Umbraco.Community.WebMCP` and `Umbraco.Community.WebMCP.StaticAssets`) to NuGet with trusted publishing: the
 nuget.org policy names this repo and `release.yml`, and the `NUGET_USER` secret holds the nuget.org username. NuGet

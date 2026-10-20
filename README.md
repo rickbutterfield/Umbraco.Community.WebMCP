@@ -44,6 +44,7 @@ tool as its own, rewrites its cached prompt whenever the tools change. Picker mo
 - [Umbraco.AI Copilot frontend tools](docs/umbraco-ai-copilot.md): how the Copilot runs browser tools, and how this
   package's tools map onto them.
 - [Vocabulary](docs/vocabulary.md): the terms used across these docs.
+- [Changelog](CHANGELOG.md): what changed in each release.
 
 ## Further reading
 
