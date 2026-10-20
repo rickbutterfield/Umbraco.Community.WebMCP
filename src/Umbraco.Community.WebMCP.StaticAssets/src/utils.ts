@@ -90,7 +90,26 @@ export function waitForQuiet(
 export function isWorkspaceReady(workspace: any) {
 	if (workspace?.loading?.getIsOn?.()) return false;
 	if (typeof workspace?.getData === 'function' && workspace.getData() === undefined) return false;
-	return true;
+	return hasDataTypeDetails(workspace?.structure);
+}
+
+/**
+ * Whether a content workspace's structure has loaded the data type of every property. It loads them after the content
+ * type, separately from the entity, and tool conditions (such as whether a document has a Block List property) read
+ * them. Structures without data types count as loaded.
+ */
+function hasDataTypeDetails(structure: any) {
+	if (typeof structure?.getContentTypeDataTypeUniques !== 'function') return true;
+	if (typeof structure.contentTypeDataTypeDetailOf !== 'function') return true;
+	return (structure.getContentTypeDataTypeUniques() as Array<string>).every((unique) => {
+		let loaded = false;
+		// The backoffice's states give their current value on subscribe
+		structure
+			.contentTypeDataTypeDetailOf(unique)
+			.subscribe((detail: unknown) => (loaded = detail !== undefined))
+			.unsubscribe();
+		return loaded;
+	});
 }
 
 /**

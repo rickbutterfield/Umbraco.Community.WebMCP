@@ -493,6 +493,18 @@ describe('UmbWebMcpToolHub', () => {
 			expect(await umbWebMcpToolHub.waitForScope('workspace', since, { maxMs: 1000, quietMs: 10 })).to.equal(true);
 		});
 
+		it('waits for registrations to settle after alreadyDone, as a reused workspace swaps toolsets', async () => {
+			const since = umbWebMcpToolHub.generation;
+			const name = uniqueName();
+			// alreadyDone is first checked after 100 ms, so this lands while the wait for quiet runs
+			setTimeout(() => registerTools([tool(name, 1)], new AbortController().signal, 'workspace'), 150);
+
+			expect(
+				await umbWebMcpToolHub.waitForScope('workspace', since, { maxMs: 1000, quietMs: 100, alreadyDone: () => true }),
+			).to.equal(true);
+			expect(umbWebMcpToolHub.namesInScope('workspace')).to.include(name);
+		});
+
 		it('does not count registrations from before', async () => {
 			registerTools([tool(uniqueName(), 1)], new AbortController().signal, 'workspace');
 			const since = umbWebMcpToolHub.generation;
@@ -526,7 +538,7 @@ describe('UmbWebMcpToolHub', () => {
 			expect(await openPath('/umbraco/section/settings')).to.deep.equal({ navigatedTo: '/umbraco/section/settings' });
 		});
 
-		it('returns straight away when the open workspace already shows the entity', async () => {
+		it('returns without waiting for new tools when the open workspace already shows the entity', async () => {
 			const info = {
 				name: 'umbraco_get_workspace_info',
 				description: 'Returns the open workspace.',

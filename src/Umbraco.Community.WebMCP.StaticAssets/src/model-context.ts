@@ -179,9 +179,9 @@ class UmbWebMcpToolHub {
 	}
 
 	/**
-	 * Resolves with true once tools with `scope` have been registered after `sinceGeneration` and registrations have
-	 * then been quiet for `quietMs`, or as soon as `alreadyDone` (checked every 100 ms) returns true, or with false
-	 * after `maxMs`. Rejects with the signal's reason when `signal` aborts.
+	 * Resolves with true once tools with `scope` have been registered after `sinceGeneration`, or `alreadyDone`
+	 * (checked every 100 ms) returns true, and registrations have then been quiet for `quietMs`; or with false after
+	 * `maxMs`. Rejects with the signal's reason when `signal` aborts.
 	 *
 	 * `alreadyDone` covers navigating within an open workspace: the backoffice reuses the workspace for another entity
 	 * of the same type, so no new tools are registered.
@@ -229,9 +229,9 @@ class UmbWebMcpToolHub {
 				if (signal?.aborted) onAbort();
 			});
 			if (outcome === 'timeout') return false;
-			if (outcome === 'done') return true;
 		}
-		// A workspace registers its own tools, then its toolsets', so wait until they've all arrived
+		// A workspace registers its own tools, then its toolsets', so wait until they've all arrived. A reused workspace
+		// can swap toolsets too, when their conditions depend on the entity (such as the block tools on its type)
 		await waitForQuiet((onChange) => this.onChange(onChange), quietMs, maxMs, signal);
 		return true;
 	}

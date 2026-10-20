@@ -35,6 +35,10 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_get_property_value_shape` | document workspace open | The stored format a property's value needs: editor, data type configuration, shape, example and allowed block types | R, U |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
+| `umbraco_list_blocks` | document with a Block List or Block Grid property open | The blocks in a Block List or Block Grid property (keys, block types, values, settings, grid areas) and the block types that can be added | R, U |
+| `umbraco_add_block` | document with a Block List or Block Grid property open | Add a block of an allowed type, with values, at an index or in a Block Grid area | U |
+| `umbraco_set_block_values` | document with a Block List or Block Grid property open | Set a block's values or settings by its key | U |
+| `umbraco_remove_block` / `umbraco_move_block` | document with a Block List or Block Grid property open | Remove a block (with its area blocks), or move it to an index or into or out of a Block Grid area | U |
 | `umbraco_get_tool_description` | WebMCP surface enabled | A tool's full description (WebMCP gets the first sentence only) | R |
 
 Packages can add their own tools; see [Adding tools from a package](extending.md). The test site's example Forms
@@ -59,7 +63,8 @@ current user's permissions still apply. The host decides what to do with them; f
   workspace (`umbraco_set_document_*`), choosing in a modal (`umbraco_select_picker_item`, `umbraco_set_modal_value`,
   `umbraco_sort_modal_items`), dismissing a modal and `umbraco_run_create_option`
   (which opens an unsaved workspace or a modal) change nothing until something is saved or submitted. Navigating away
-  from unsaved changes shows the backoffice's own discard prompt.
+  from unsaved changes shows the backoffice's own discard prompt. The block tools (`umbraco_add_block`,
+  `umbraco_set_block_values`, `umbraco_remove_block`, `umbraco_move_block`) stage edits the same way.
 - **`untrustedContentHint`:** the result can contain text that editors wrote, such as names, property values or a
   modal's value, and that text may have been written to manipulate an agent. Tools that return only aliases, keys,
   flags and labels from extension manifests aren't marked. It's a label, not a defence; the defence is approval on
@@ -71,7 +76,10 @@ current user's permissions still apply. The host decides what to do with them; f
 - **Opening a workspace waits for it, and says what it added.** `umbraco_navigate`, the `umbraco_open_*` tools, and
   create options and entity actions that navigate wait until the workspace has loaded (up to 10 s), then return
   `workspaceReady` and `workspaceTools`: the tools that exist only while that workspace is open. Workspace tools are
-  only registered once the workspace has loaded, so one that appears can be called straight away.
+  only registered once the workspace has loaded, including the data types of its properties, so one that appears can
+  be called straight away. Some depend on what's open: the block tools exist only while the document's type has a Block
+  List or Block Grid property (its own or from a composition). When the backoffice reuses the open workspace for
+  another document, the tools change with it, and the open tools wait for that before returning `workspaceTools`.
 - **Actions report what happened.** `umbraco_run_entity_action`, `umbraco_run_workspace_action` and the document save
   tools return the `notifications` the backoffice showed during the action, and `navigatedTo` when the path changed.
   Umbraco 18 shows no notification for routine saves, trashes or deletes, so the list is often empty; validation
@@ -107,6 +115,18 @@ current user's permissions still apply. The host decides what to do with them; f
   (`umbraco_click_modal_button`) saves the position of each. `umbraco_list_modals` lists the items as
   `sortableItems`. The items you list go first, in that order, and the rest keep their order after them. The modal
   loads 50 items at a time; only loaded items can be sorted, so click its Load more button first for more.
+- **Edit blocks with the block tools, not the stored value.** `umbraco_set_document_property_value` can rewrite a
+  Block List or Block Grid value, but the agent then has to write the stored format: new keys, an `editorAlias` per
+  value and an `expose` entry per block. A block without one saves without an error but stays unexposed, and no other
+  tool returns the element type keys or Block Grid area keys a new block needs. The block tools load the property into
+  the backoffice's own block manager, so a new block gets the property editors' default values, its settings and its
+  `expose` entries, then they write the value back to the document. They work whichever tab the property is on,
+  without its editor on screen. Blocks are identified by their key (the content key) from `umbraco_list_blocks`;
+  values go in by property alias, each in its property editor's stored format. For a document that varies by
+  culture, pass `culture`. In a Block Grid, `parentKey` and `area` (alias or key) put a block in another block's area;
+  the tools refuse block types the root or area doesn't allow, more blocks than its maximum, and moving a block into
+  its own areas, and size a block to its container as the grid does. Each change returns the blocks afterwards. Blocks
+  nested inside another block's own Block List property aren't reachable yet.
 - **Prefer `umbraco_click_modal_button` to `umbraco_submit_modal`.** Many modals do their work in the button handler,
   so submitting through the modal's context skips it.
 - **When two registrations share a tool name,** for example a document opened in a modal on top of another, the
