@@ -71,7 +71,7 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 		const wanted = nameOrAlias.toLowerCase();
 		const types = await this.#getFieldTypes();
 		const type = types.find((t) => [t.name, t.alias, t.id].some((x) => x?.toLowerCase() === wanted));
-		if (!type) throw new Error(`No field type "${nameOrAlias}". Use forms_list_field_types.`);
+		if (!type) throw new Error(`No field type "${nameOrAlias}". Use umbraco_forms_list_field_types.`);
 		return type;
 	}
 
@@ -123,7 +123,7 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 		const target = input.containerId
 			? containers.find((c) => c.container.id === input.containerId)
 			: containers.at(-1);
-		if (!target) throw new Error(`No container "${input.containerId}". Use forms_get_form_design.`);
+		if (!target) throw new Error(`No container "${input.containerId}". Use umbraco_forms_get_form_design.`);
 
 		const taken = new Set(containers.flatMap((c) => c.container.fields.map((field) => field.alias)));
 		let alias = input.alias || toAlias(input.caption) || 'question';
@@ -185,7 +185,7 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 	getTools() {
 		return [
 			{
-				name: 'forms_get_form_design',
+				name: 'umbraco_forms_get_form_design',
 				title: 'Get the form design',
 				description:
 					'Returns the open form: its name, and its pages, groups, containers and fields (id, caption, alias, field type, mandatory and options), including unsaved changes.',
@@ -193,7 +193,7 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				execute: async () => this.#describe(this.#form()),
 			},
 			{
-				name: 'forms_list_field_types',
+				name: 'umbraco_forms_list_field_types',
 				title: 'List form field types',
 				description:
 					'Lists the field types a question can have, such as Short answer, Long answer or Dropdown, with whether they take options and the aliases of their settings.',
@@ -207,7 +207,7 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 					})),
 			},
 			{
-				name: 'forms_set_form_name',
+				name: 'umbraco_forms_set_form_name',
 				title: 'Set the form name',
 				description: 'Sets the name of the open form. Does not save: save with umbraco_run_workspace_action.',
 				inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
@@ -217,13 +217,13 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				},
 			},
 			{
-				name: 'forms_set_caption',
+				name: 'umbraco_forms_set_caption',
 				title: 'Set a page or group caption',
 				description: 'Sets the caption of a page or a group of the open form, by its id. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {
-						id: { type: 'string', description: 'A page or group id, from forms_get_form_design.' },
+						id: { type: 'string', description: 'A page or group id, from umbraco_forms_get_form_design.' },
 						caption: { type: 'string' },
 					},
 					required: ['id', 'caption'],
@@ -245,13 +245,13 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 							}),
 						};
 					});
-					if (!found) throw new Error(`No page or group "${id}". Use forms_get_form_design.`);
+					if (!found) throw new Error(`No page or group "${id}". Use umbraco_forms_get_form_design.`);
 					this.#setPages(pages);
 					return { id, caption };
 				},
 			},
 			{
-				name: 'forms_add_page',
+				name: 'umbraco_forms_add_page',
 				title: 'Add a form page',
 				description:
 					'Adds a page to the end of the open form, with one group and any questions you pass. Returns the ids of the page, its group and the group container to add questions to. Does not save.',
@@ -260,7 +260,7 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 					properties: {
 						caption: { type: 'string', description: 'The page caption. Optional.' },
 						groupCaption: { type: 'string', description: "The caption of the page's first group. Optional." },
-						fields: { ...FIELDS_SCHEMA, description: 'Questions to add to the group, as for forms_add_fields. Optional.' },
+						fields: { ...FIELDS_SCHEMA, description: 'Questions to add to the group, as for umbraco_forms_add_fields. Optional.' },
 					},
 				},
 				execute: async ({ caption = '', groupCaption = '', fields = [] }) => {
@@ -276,21 +276,21 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				},
 			},
 			{
-				name: 'forms_add_group',
+				name: 'umbraco_forms_add_group',
 				title: 'Add a form group',
 				description:
 					'Adds a group to a page of the open form (the last page if pageId is omitted). Returns the ids of the group and its container. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {
-						pageId: { type: 'string', description: 'From forms_get_form_design or forms_add_page.' },
+						pageId: { type: 'string', description: 'From umbraco_forms_get_form_design or umbraco_forms_add_page.' },
 						caption: { type: 'string', description: 'The group caption. Optional.' },
 					},
 				},
 				execute: async ({ pageId, caption = '' }) => {
 					const form = this.#form();
 					const target = pageId ? form.pages.find((page) => page.id === pageId) : form.pages.at(-1);
-					if (!target) throw new Error(`No page "${pageId}". Use forms_get_form_design.`);
+					if (!target) throw new Error(`No page "${pageId}". Use umbraco_forms_get_form_design.`);
 					const fieldset = group(target.id, caption, target.fieldSets.length);
 					this.#setPages(
 						form.pages.map((page) => (page === target ? { ...page, fieldSets: [...page.fieldSets, fieldset] } : page)),
@@ -299,30 +299,30 @@ export class WebMcpFormsToolset extends UmbControllerBase {
 				},
 			},
 			{
-				name: 'forms_add_field',
+				name: 'umbraco_forms_add_field',
 				title: 'Add a question to the form',
 				description:
-					'Adds a question (field) to the open form, in the given container or else the last one. The alias is made from the caption unless given. Pass options for field types that take them, such as Dropdown, and settings by alias from forms_list_field_types. Does not save.',
+					'Adds a question (field) to the open form, in the given container or else the last one. The alias is made from the caption unless given. Pass options for field types that take them, such as Dropdown, and settings by alias from umbraco_forms_list_field_types. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {
 						...FIELD_PROPERTIES,
-						containerId: { type: 'string', description: 'From forms_get_form_design, forms_add_page or forms_add_group.' },
+						containerId: { type: 'string', description: 'From umbraco_forms_get_form_design, umbraco_forms_add_page or umbraco_forms_add_group.' },
 					},
 					required: ['fieldType', 'caption'],
 				},
 				execute: (input) => this.#addField(input),
 			},
 			{
-				name: 'forms_add_fields',
+				name: 'umbraco_forms_add_fields',
 				title: 'Add questions to the form',
 				description:
-					'Adds several questions to the open form in one call, in order, in the given container or else the last one. Each takes the same input as forms_add_field. Does not save.',
+					'Adds several questions to the open form in one call, in order, in the given container or else the last one. Each takes the same input as umbraco_forms_add_field. Does not save.',
 				inputSchema: {
 					type: 'object',
 					properties: {
 						fields: FIELDS_SCHEMA,
-						containerId: { type: 'string', description: 'From forms_get_form_design, forms_add_page or forms_add_group.' },
+						containerId: { type: 'string', description: 'From umbraco_forms_get_form_design, umbraco_forms_add_page or umbraco_forms_add_group.' },
 					},
 					required: ['fields'],
 				},

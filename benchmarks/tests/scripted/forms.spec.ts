@@ -126,21 +126,21 @@ const hybridSteps = (ui: UiHelpers, page: Page): Steps => ({
 const toolSteps = (ui: UiHelpers, page: Page): Steps => ({
 	...hybridSteps(ui, page),
 	async setName(name) {
-		await callTool(page, 'forms_set_form_name', { name });
+		await callTool(page, 'umbraco_forms_set_form_name', { name });
 	},
 	async addShortAnswer(caption, pageIndex) {
-		const design = await callTool(page, 'forms_get_form_design');
+		const design = await callTool(page, 'umbraco_forms_get_form_design');
 		const containerId = design.pages[pageIndex].groups[0].containers[0].id;
-		await callTool(page, 'forms_add_field', { fieldType: 'Short answer', caption, containerId });
+		await callTool(page, 'umbraco_forms_add_field', { fieldType: 'Short answer', caption, containerId });
 	},
 	async setPageAndGroupCaptions(pageIndex, pageCaption, groupCaption) {
-		const design = await callTool(page, 'forms_get_form_design');
+		const design = await callTool(page, 'umbraco_forms_get_form_design');
 		const target = design.pages[pageIndex];
-		await callTool(page, 'forms_set_caption', { id: target.id, caption: pageCaption });
-		await callTool(page, 'forms_set_caption', { id: target.groups[0].id, caption: groupCaption });
+		await callTool(page, 'umbraco_forms_set_caption', { id: target.id, caption: pageCaption });
+		await callTool(page, 'umbraco_forms_set_caption', { id: target.groups[0].id, caption: groupCaption });
 	},
 	async addPage() {
-		await callTool(page, 'forms_add_page');
+		await callTool(page, 'umbraco_forms_add_page');
 	},
 	async save() {
 		const result = await callTool(page, 'umbraco_run_workspace_action', { action: 'Forms.WorkspaceAction.Form.Save' });
