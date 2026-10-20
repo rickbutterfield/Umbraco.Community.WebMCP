@@ -105,6 +105,62 @@ test('creates a document in two cultures and publishes one', async ({ page, umbr
 	}
 });
 
+test('describes a block list value and saves the example it gives', async ({ page, umbracoApi }) => {
+	const elementTypeName = 'WebMcpE2eElementType';
+	const blockListName = 'WebMcpE2eBlockList';
+	await umbracoApi.dataType.ensureNameNotExists(blockListName);
+	try {
+		const textstring = await umbracoApi.dataType.getByName('Textstring');
+		const elementTypeId = await umbracoApi.documentType.createDefaultElementType(
+			elementTypeName,
+			'TestGroup',
+			'Textstring',
+			textstring.id,
+		);
+		const blockListId = await umbracoApi.dataType.createBlockListDataTypeWithABlock(blockListName, elementTypeId);
+		const documentTypeId = await umbracoApi.documentType.createDocumentTypeWithPropertyEditor(
+			documentTypeName,
+			blockListName,
+			blockListId,
+		);
+		await callWebMcp(page, 'umbraco_open_new_document', { documentTypeKey: documentTypeId });
+		const [{ alias }] = (await callWebMcp(page, 'umbraco_get_document_state')).properties;
+
+		const shape = await callWebMcp(page, 'umbraco_get_property_value_shape', { alias });
+		expect(shape.editorAlias).toBe('Umbraco.BlockList');
+		expect(shape.inferred).toBe(false);
+		const [blockType] = shape.blockTypes;
+		expect(blockType.contentElementTypeKey).toBe(elementTypeId);
+		const [elementProperty] = blockType.contentElementType.properties;
+		expect(elementProperty.editorAlias).toBe('Umbraco.TextBox');
+		expect(shape.example.contentData[0].contentTypeKey).toBe(elementTypeId);
+		expect(shape.example.expose).toHaveLength(1);
+
+		// A block property is described by its data type
+		const propertyShape = await callWebMcp(page, 'umbraco_get_property_value_shape', {
+			dataTypeKey: elementProperty.dataTypeKey,
+		});
+		expect(propertyShape.shape).toBe('string');
+
+		const value = structuredClone(shape.example);
+		value.contentData[0].values[0].value = 'Block headline';
+		await callWebMcp(page, 'umbraco_set_document_property_value', { alias, value });
+		await callWebMcp(page, 'umbraco_set_document_name', { name: documentName });
+		const saved = await callWebMcp(page, 'umbraco_save_document');
+		expect(saved.completed).toBe(true);
+
+		const document = await umbracoApi.document.getByName(documentName);
+		const stored = document.values.find((x: any) => x.alias === alias).value;
+		expect(stored.contentData[0].values[0].value).toBe('Block headline');
+		expect(stored.layout['Umbraco.BlockList']).toHaveLength(1);
+	} finally {
+		await umbracoApi.document.ensureNameNotExists(documentName);
+		await umbracoApi.documentType.ensureNameNotExists(documentTypeName);
+		await umbracoApi.dataType.ensureNameNotExists(blockListName);
+		await umbracoApi.documentType.ensureNameNotExists(elementTypeName);
+	}
+});
+
 test('moves a form into a folder by picking the folder in the Move to picker', async ({ page, umbracoApi }) => {
 	const forms = new FormsApi(umbracoApi);
 	await forms.cleanUp(BENCH_FORM);
@@ -136,5 +192,47 @@ test('moves a form into a folder by picking the folder in the Move to picker', a
 		await expect.poll(async () => (await forms.getFormByName(BENCH_FORM))?.parentUnique).toBe(BENCH_FOLDER_ID);
 	} finally {
 		await forms.cleanUp(BENCH_FORM);
+	}
+});
+
+test('sorts the children of a document in the Sort children modal', async ({ page, umbracoApi }) => {
+	const parentTypeName = 'WebMcpE2eSortParentType';
+	const childTypeName = 'WebMcpE2eSortChildType';
+	const parentName = 'WebMCP sort parent';
+	await umbracoApi.document.ensureNameNotExists(parentName);
+	try {
+		const childTypeId = await umbracoApi.documentType.createDefaultDocumentType(childTypeName);
+		const parentTypeId = await umbracoApi.documentType.createDocumentTypeWithAllowedChildNode(parentTypeName, childTypeId);
+		const parentId = await umbracoApi.document.createDefaultDocument(parentName, parentTypeId);
+		for (const name of ['Alpha', 'Bravo', 'Charlie']) {
+			await umbracoApi.document.createDefaultDocumentWithParent(name, childTypeId, parentId);
+		}
+		const childNames = async () =>
+			(await umbracoApi.document.getChildren(parentId)).map((child: any) => child.variants[0].name);
+		expect(await childNames()).toEqual(['Alpha', 'Bravo', 'Charlie']);
+
+		const ran = await callWebMcp(page, 'umbraco_run_entity_action', {
+			entityType: 'document',
+			unique: parentId,
+			action: 'Sort children',
+		});
+		expect(ran.completed).toBe(false);
+		const { key } = (await callWebMcp(page, 'umbraco_list_modals')).at(-1);
+
+		// The modal keeps its order in the table its rows are dragged in, not in its value, which Sort ignores
+		const refused = await callWebMcp(page, 'umbraco_sort_modal_items', { key, order: ['Delta'] });
+		expect(refused.error).toContain('Shown: Alpha');
+
+		const ordered = await callWebMcp(page, 'umbraco_sort_modal_items', { key, order: ['Charlie'] });
+		expect(ordered.sortableItems.map((item: any) => item.name)).toEqual(['Charlie', 'Alpha', 'Bravo']);
+		expect(ordered.buttons.map((button: any) => button.label)).toEqual(['Cancel', 'Sort']);
+
+		const sorted = await callWebMcp(page, 'umbraco_click_modal_button', { key, label: 'Sort' });
+		expect(sorted.closed).toBe(true);
+		await expect.poll(childNames).toEqual(['Charlie', 'Alpha', 'Bravo']);
+	} finally {
+		await umbracoApi.document.ensureNameNotExists(parentName);
+		await umbracoApi.documentType.ensureNameNotExists(parentTypeName);
+		await umbracoApi.documentType.ensureNameNotExists(childTypeName);
 	}
 });

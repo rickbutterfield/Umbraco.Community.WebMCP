@@ -24,6 +24,7 @@ const verbs = [
 	'search',
 	'select',
 	'set',
+	'sort',
 	'submit',
 ];
 

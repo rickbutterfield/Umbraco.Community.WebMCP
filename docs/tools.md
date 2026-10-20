@@ -20,9 +20,10 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_open_entity` | always | Open `section/{section}/workspace/{entityType}/edit/{unique}` | none |
 | `umbraco_run_entity_action` | always | Run an action from an entity's "..." menu by label, such as Trash; lists them without one | C |
 | `umbraco_run_create_option` | always | Run an option from an entity's Create dialog by label, such as New Form; lists them without one | none |
-| `umbraco_list_modals` | always | Open modals, with their data, value and buttons (id and label) | R, U |
+| `umbraco_list_modals` | always | Open modals, with their data, value and buttons (id and label), and the items of a sort modal | R, U |
 | `umbraco_click_modal_button` | always | Click a modal button by id, or by label | C |
 | `umbraco_set_modal_value` | always | Change a modal's pending value | U |
+| `umbraco_sort_modal_items` | always | Put the items of a sort modal, such as Sort children, in a new order, as dragging them does | U |
 | `umbraco_submit_modal` / `umbraco_close_modal` | always | Submit or dismiss a modal through its context | C / none |
 | `umbraco_list_allowed_document_types` | Content section open | Allowed document types at root or under a parent | R, U |
 | `umbraco_open_new_document` / `umbraco_open_document` | Content section open | Open the document workspace | none |
@@ -31,6 +32,7 @@ In the Hints column, R is `readOnlyHint`, C is `consequentialHint` and U is `unt
 | `umbraco_run_workspace_action` | any workspace open | Run a workspace footer button by label, such as Save; `umbraco_get_workspace_info` lists them | C |
 | `umbraco_get_document_state` | document workspace open | Key, variants, variant options (every culture, created or not), properties and current (unsaved) values | R, U |
 | `umbraco_set_document_name` | document workspace open | Set the name for a variant | none |
+| `umbraco_get_property_value_shape` | document workspace open | The stored format a property's value needs: editor, data type configuration, shape, example and allowed block types | R, U |
 | `umbraco_set_document_property_value` | document workspace open | Set a value by alias (stored format) | none |
 | `umbraco_save_document` / `umbraco_save_and_publish_document` | document workspace open | Same as the buttons | C, U |
 | `umbraco_list_blocks` | document with a Block List or Block Grid property open | The blocks in a Block List or Block Grid property (keys, block types, values, settings, grid areas) and the block types that can be added | R, U |
@@ -56,7 +58,8 @@ current user's permissions still apply. The host decides what to do with them; f
   - `umbraco_submit_modal`: whatever opened the modal acts on the value.
   - `umbraco_run_workspace_action`: Save, Save and publish, and Save and preview all persist.
 - **Not consequential:** tools that only change what's on screen. Navigating, opening, staging edits in the open
-  workspace (`umbraco_set_document_*`), choosing in a modal (`umbraco_select_picker_item`, `umbraco_set_modal_value`), dismissing a modal and `umbraco_run_create_option`
+  workspace (`umbraco_set_document_*`), choosing in a modal (`umbraco_select_picker_item`, `umbraco_set_modal_value`,
+  `umbraco_sort_modal_items`), dismissing a modal and `umbraco_run_create_option`
   (which opens an unsaved workspace or a modal) change nothing until something is saved or submitted. Navigating away
   from unsaved changes shows the backoffice's own discard prompt. The block tools (`umbraco_add_block`,
   `umbraco_set_block_values`, `umbraco_remove_block`, `umbraco_move_block`) stage edits the same way.
@@ -92,10 +95,24 @@ current user's permissions still apply. The host decides what to do with them; f
   document doesn't have or the user can't edit, and, when publishing, mandatory languages that aren't published yet
   and aren't included, which the server would reject. Without `cultures`, the tool returns `completed: false` and
   `variantDialog` with the open dialog. Scheduling and publishing with descendants still open their own dialogs.
+- **Ask for a value's format before setting it.** `umbraco_set_document_property_value` takes the stored format, which
+  differs by editor. `umbraco_get_property_value_shape` returns the property's editor (`editorAlias`, `editorUiAlias`),
+  its data type configuration, the shape as a TypeScript type, an example and notes, from the backoffice's own value
+  types and the data type at runtime. Block editors also get `blockTypes`, with each allowed element type's properties;
+  pass a property's `dataTypeKey` to describe it. Editors it doesn't know are described from the current value, with
+  `inferred: true`. It covers text, rich text, media, content and multinode tree pickers, multi URL pickers, block list,
+  grid and single block, tags, dropdowns, checkbox and radio button lists, toggles, numbers, sliders, dates, colors,
+  multiple text strings and upload fields.
 - **Pick with `umbraco_select_picker_item`, not `umbraco_set_modal_value`.** Pickers keep their selection in their
   tree, so a changed modal value doesn't always reach them: Forms' Move to ignores it and keeps Move disabled. The
   tool selects through the tree's own selection, checks the picker's filter (such as folders only) and returns the
   selection and buttons. Items inside a collapsed folder can still be picked by their unique.
+- **Sort with `umbraco_sort_modal_items`, not `umbraco_set_modal_value`.** Sort children (documents and media) keeps
+  its order in the table you drag rows in, not in the modal's value, so a changed value is ignored and Sort saves the
+  old order. The tool reorders the table as a drag does and marks every item as moved, so the modal's own Sort button
+  (`umbraco_click_modal_button`) saves the position of each. `umbraco_list_modals` lists the items as
+  `sortableItems`. The items you list go first, in that order, and the rest keep their order after them. The modal
+  loads 50 items at a time; only loaded items can be sorted, so click its Load more button first for more.
 - **Edit blocks with the block tools, not the stored value.** `umbraco_set_document_property_value` can rewrite a
   Block List or Block Grid value, but the agent then has to write the stored format: new keys, an `editorAlias` per
   value and an `expose` entry per block. A block without one saves without an error but stays unexposed, and no other
