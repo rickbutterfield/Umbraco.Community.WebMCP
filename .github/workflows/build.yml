@@ -60,3 +60,77 @@ jobs:
         with:
           name: nupkg
           path: build.out/*.nupkg
+
+  # Runs the end-to-end tests in benchmarks/tests against the test site, in Playwright's Chromium with Google's WebMCP
+  # polyfill. The webmcp project needs Google Chrome with WebMCP switched on, so it only runs locally.
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      URL: https://localhost:44311
+      UMBRACO_USER_LOGIN: e2e@example.com
+      # Overrides the test site's own unattended install user
+      Umbraco__CMS__Unattended__UnattendedUserEmail: e2e@example.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            src/Umbraco.Community.WebMCP.StaticAssets/package-lock.json
+            benchmarks/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # A password for this run only, for the install and the login
+      - name: Generate the admin password
+        run: |
+          password="$(openssl rand -base64 24)"
+          echo "::add-mask::$password"
+          echo "UMBRACO_USER_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "Umbraco__CMS__Unattended__UnattendedUserPassword=$password" >> "$GITHUB_ENV"
+
+      - name: Install and build client
+        run: |
+          npm run ci:install-client
+          npm run ci:build-client
+
+      - name: Start the test site
+        run: |
+          dotnet dev-certs https
+          dotnet build examples/Umbraco.Community.WebMCP.TestSite
+          # launchSettings.json is gitignored, so set what its Umbraco.Web.UI profile would
+          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="$URL" nohup dotnet run --project examples/Umbraco.Community.WebMCP.TestSite --no-launch-profile --no-build > site.log 2>&1 &
+          site=$!
+          for i in $(seq 1 60); do
+            if [ "$(curl -sk -o /dev/null -w '%{http_code}' "$URL/umbraco")" = "200" ]; then exit 0; fi
+            if ! kill -0 "$site" 2>/dev/null; then echo "The site stopped"; cat site.log; exit 1; fi
+            sleep 5
+          done
+          echo "The site didn't start within 5 minutes"
+          cat site.log
+          exit 1
+
+      - name: Install the end-to-end tests
+        working-directory: benchmarks
+        run: |
+          npm ci --no-fund --no-audit
+          npx playwright install --with-deps chromium
+
+      - name: Run the end-to-end tests
+        working-directory: benchmarks
+        run: npx playwright test --project surfaces --project webmcp-polyfill
+
+      - name: Upload the site log and test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-output
+          path: |
+            site.log
+            benchmarks/results/test-output

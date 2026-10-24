@@ -59,7 +59,9 @@ npx playwright test --project=webmcp --project=webmcp-polyfill   # the WebMCP en
 ```
 
 `webmcp-polyfill` runs the WebMCP tests in Playwright's bundled Chromium with Google's WebMCP polyfill
-(`tests/webmcp/webmcp-polyfill.js`) instead of Chrome's own WebMCP.
+(`tests/webmcp/webmcp-polyfill.js`) instead of Chrome's own WebMCP. CI (the `e2e` job in `.github/workflows/build.yml`)
+runs `surfaces` and `webmcp-polyfill` on every pull request; `webmcp` needs Google Chrome with WebMCP, so run it
+locally.
 
 `tests/webmcp/blocks.spec.ts` does one block-editing job (Block List and Block Grid) twice: with the document tools
 alone, rewriting each property's stored value, and with the block tools. Each run adds a `job` annotation with its
